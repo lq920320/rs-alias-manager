@@ -1,0 +1,143 @@
+sequenceDiagram
+    participant User
+    participant App as Leptos App
+    participant API as api/commands.rs
+    participant TC as AliasCommands
+    participant SCM as ShellConfigManager
+    participant AP as AliasParser
+    participant FS as FileSystem
+
+    %% ===== 别名列表加载流程 =====
+    rect rgb(240, 248, 255)
+    Note over User,FS: 别名列表加载流程
+    User->>App: 启动应用
+    App->>API: invoke("detect_shell")
+    API->>TC: detect_shell()
+    TC->>TC: 读取 $SHELL 环境变量
+    TC-->>API: ShellType::Zsh
+    API-->>App: "zsh"
+
+    App->>API: invoke("list_aliases", {shell: "zsh"})
+    API->>TC: list_aliases("zsh", None)
+    TC->>SCM: read_aliases(Zsh, None)
+    SCM->>SCM: get_config_path(Zsh, None)
+    SCM->>FS: 读取 ~/.zshrc
+    FS-->>SCM: 文件内容
+    SCM->>AP: 逐行 parse_alias_line()
+    AP-->>SCM: Vec<Alias>
+    SCM-->>TC: Vec<Alias>
+    TC-->>API: Vec<Alias>
+    API-->>App: 别名列表
+
+    App->>App: 更新 aliases Signal
+    App->>User: 渲染别名列表
+    end
+
+    %% ===== 添加别名流程 =====
+    rect rgb(255, 248, 240)
+    Note over User,FS: 添加别名流程
+    User->>App: 点击"添加别名"
+    App->>User: 显示添加弹窗
+    User->>App: 输入名称 "gs" + 命令 "git status"
+    User->>App: 点击"确认添加"
+
+    App->>API: invoke("add_alias", {name:"gs", command:"git status", shell:"zsh"})
+    API->>TC: add_alias("gs", "git status", "zsh", None)
+    TC->>TC: 校验名称格式
+    TC->>SCM: add_alias(Zsh, None, Alias{name:"gs", command:"git status"})
+
+    SCM->>FS: 读取 ~/.zshrc 当前内容
+    FS-->>SCM: 文件内容
+    SCM->>SCM: 检查别名是否已存在
+    SCM->>SCM: 追加 "alias gs='git status'\n" 到内容末尾
+    SCM->>FS: SafeWriter: 写临时文件 → 原子 rename
+    FS-->>SCM: Ok(())
+    SCM-->>TC: AliasChangeResult{Added, ...}
+    TC-->>API: AliasChangeResult
+    API-->>App: 添加成功
+
+    App->>API: invoke("list_aliases", {shell:"zsh"})
+    API-->>App: 刷新后的别名列表
+    App->>App: 更新 aliases Signal
+    App->>User: 显示成功提示 + 刷新列表
+    end
+
+    %% ===== 删除别名流程 =====
+    rect rgb(248, 255, 240)
+    Note over User,FS: 删除别名流程
+    User->>App: 选中别名 "gs" → 点击"删除"
+    App->>User: 确认删除弹窗
+    User->>App: 确认
+
+    App->>API: invoke("delete_alias", {name:"gs", shell:"zsh"})
+    API->>TC: delete_alias("gs", "zsh", None)
+    TC->>SCM: delete_alias(Zsh, None, "gs")
+
+    SCM->>FS: 读取 ~/.zshrc
+    FS-->>SCM: 文件内容
+    SCM->>SCM: 逐行匹配 "alias gs=" 开头的行
+    SCM->>SCM: 移除匹配行（保留其他内容）
+    SCM->>FS: SafeWriter: 写临时文件 → 原子 rename
+    FS-->>SCM: Ok(())
+    SCM-->>TC: AliasChangeResult{Deleted, ...}
+    TC-->>API: AliasChangeResult
+    API-->>App: 删除成功
+
+    App->>App: 更新 aliases Signal（移除已删别名）
+    App->>User: 显示"已删除"提示
+    end
+
+    %% ===== 编辑别名流程 =====
+    rect rgb(255, 240, 248)
+    Note over User,FS: 编辑别名流程
+    User->>App: 双击别名 "gs" → 进入编辑
+    App->>User: 显示编辑弹窗（预填当前值）
+    User->>App: 修改命令为 "git status --short"
+    User->>App: 点击"确认保存"
+
+    App->>API: invoke("update_alias", {old_name:"gs", name:"gs", command:"git status --short", shell:"zsh"})
+    API->>TC: update_alias("gs", "gs", "git status --short", "zsh", None)
+    TC->>SCM: update_alias(Zsh, None, "gs", Alias{name:"gs", command:"git status --short"})
+
+    SCM->>FS: 读取 ~/.zshrc
+    FS-->>SCM: 文件内容
+    SCM->>SCM: 定位 "alias gs=" 行，替换为新行
+    SCM->>FS: SafeWriter: 写临时文件 → 原子 rename
+    FS-->>SCM: Ok(())
+    SCM-->>TC: AliasChangeResult{Updated, ...}
+    TC-->>API: AliasChangeResult
+    API-->>App: 更新成功
+
+    App->>App: 更新 aliases Signal
+    App->>User: 显示"已更新"提示
+    end
+
+    %% ===== 模板导入流程 =====
+    rect rgb(248, 240, 255)
+    Note over User,FS: 模板导入流程
+    User->>App: 切换到模板库页面
+    App->>API: invoke("list_templates", {category: "Git"})
+    API->>TC: TemplateCommands.list_templates(Some("Git"))
+    TC->>TC: TemplateLibrary.get_templates_by_category(Git)
+    TC-->>API: Vec<Template>
+    API-->>App: 渲染 Git 分类模板
+
+    User->>App: 勾选 gs, gp, gl → 点击"导入选中(3)"
+    App->>API: invoke("import_templates", {names:["gs","gp","gl"], shell:"zsh"})
+    API->>TC: TemplateCommands.import_templates(["gs","gp","gl"], "zsh", None)
+    TC->>SCM: read_aliases(Zsh, None) 检查已存在
+    SCM-->>TC: 当前别名列表
+
+    TC->>TC: 过滤已存在别名（跳过）
+
+    loop 每个新别名
+        TC->>SCM: add_alias(Zsh, None, alias)
+        SCM->>FS: SafeWriter 追加到配置文件
+    end
+
+    TC-->>API: ImportResult{imported:["gp","gl"], skipped:["gs"]}
+    API-->>App: 导入结果
+
+    App->>App: 刷新别名列表
+    App->>User: "成功导入 2 个，跳过 1 个（已存在）"
+    end

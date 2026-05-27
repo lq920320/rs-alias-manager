@@ -1,0 +1,6 @@
+# macOS 26+ requires apps to run from within an .app bundle structure
+# that contains a valid Info.plist with a bundle identifier.
+# This runner wraps the built binary inside an .app bundle before launching.
+
+[target.aarch64-apple-darwin]
+runner = ["sh", "-c", "BIN=\"$1\"; DIR=\"$(dirname \"$BIN\")\"; BUNDLE=\"$DIR/rs-alias-manager-tauri.app\"; mkdir -p \"$BUNDLE/Contents/MacOS\"; cp \"$BIN\" \"$BUNDLE/Contents/MacOS/rs-alias-manager-tauri\"; cp \"$DIR/../Info.plist\" \"$BUNDLE/Contents/Info.plist\" 2>/dev/null || cp Info.plist \"$BUNDLE/Contents/Info.plist\"; exec \"$BUNDLE/Contents/MacOS/rs-alias-manager-tauri\"", "--"]

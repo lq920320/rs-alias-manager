@@ -1,0 +1,154 @@
+classDiagram
+    direction TB
+
+    %% ===== 数据模型 =====
+    class ShellType {
+        <<enumeration>>
+        Bash
+        Zsh
+        Fish
+        +config_path() String
+        +source_command() String
+        +from_env() ShellType
+        +from_str(s: &str) ShellType
+    }
+
+    class Alias {
+        +name: String
+        +command: String
+        +tags: Vec~String~
+        +to_alias_line() String
+        +from_alias_line(line: &str) Option~Alias~
+    }
+
+    class AliasAction {
+        <<enumeration>>
+        Added
+        Updated
+        Deleted
+    }
+
+    class AliasChangeResult {
+        +action: AliasAction
+        +alias: Alias
+        +message: String
+    }
+
+    class TemplateCategory {
+        <<enumeration>>
+        Git
+        Docker
+        FileOps
+        Network
+        Custom
+        +label() &str
+        +all() Vec~TemplateCategory~
+    }
+
+    class Template {
+        +name: String
+        +command: String
+        +description: String
+        +category: TemplateCategory
+    }
+
+    class ImportResult {
+        +imported: Vec~String~
+        +skipped: Vec~String~
+        +failed: Vec~String~
+    }
+
+    class AppConfig {
+        +shell_type: ShellType
+        +custom_config_path: Option~String~
+        +auto_refresh: bool
+        +auto_source: bool
+    }
+
+    class AppError {
+        <<enumeration>>
+        IoError(String)
+        ParseError(String)
+        ConfigNotFound(String)
+        AliasExists(String)
+        AliasNotFound(String)
+        InvalidAliasName(String)
+        +to_string() String
+    }
+
+    %% ===== 后端服务 =====
+    class ShellConfigManager {
+        +read_aliases(shell: ShellType, path: Option~String~) Result~Vec~Alias~~
+        +add_alias(shell: ShellType, path: Option~String~, alias: Alias) Result~AliasChangeResult~~
+        +update_alias(shell: ShellType, path: Option~String~, old_name: String, alias: Alias) Result~AliasChangeResult~~
+        +delete_alias(shell: ShellType, path: Option~String~, name: String) Result~AliasChangeResult~~
+        +get_config_path(shell: ShellType, custom: Option~String~) PathBuf
+    }
+
+    class AliasParser {
+        +parse_alias_line(line: &str) Option~Alias~
+        +serialize_alias(alias: &Alias) String
+        +is_alias_line(line: &str) bool
+    }
+
+    class SafeWriter {
+        +write_atomic(path: &Path, content: &str) Result~()~
+    }
+
+    class TemplateLibrary {
+        +get_all_templates() Vec~Template~
+        +get_templates_by_category(cat: TemplateCategory) Vec~Template~
+        +import_templates(templates: Vec~Template~, shell: ShellType, path: Option~String~) Result~ImportResult~~
+    }
+
+    class SettingsManager {
+        +load_settings() Result~AppConfig~
+        +save_settings(config: &AppConfig) Result~()~
+        +get_default_config_path() PathBuf
+    }
+
+    %% ===== Tauri Command 接口 =====
+    class AliasCommands {
+        +list_aliases(shell: &str, path: Option~String~) Result~Vec~Alias~, AppError~
+        +add_alias(name: &str, command: &str, shell: &str, path: Option~String~) Result~AliasChangeResult, AppError~
+        +update_alias(old_name: &str, name: &str, command: &str, shell: &str, path: Option~String~) Result~AliasChangeResult, AppError~
+        +delete_alias(name: &str, shell: &str, path: Option~String~) Result~AliasChangeResult, AppError~
+        +detect_shell() Result~String, AppError~
+    }
+
+    class TemplateCommands {
+        +list_templates(category: Option~String~) Vec~Template~
+        +import_templates(names: Vec~String~, shell: &str, path: Option~String~) Result~ImportResult, AppError~
+    }
+
+    class SettingsCommands {
+        +get_settings() Result~AppConfig, AppError~
+        +update_settings(config: AppConfig) Result~(), AppError~
+        +get_config_file_path(shell: &str) Result~String, AppError~
+    }
+
+    %% ===== 前端组件 =====
+    class AppState {
+        +aliases: Signal~Vec~Alias~~
+        +shell_type: Signal~ShellType~
+        +config_path: Signal~String~
+        +search_query: Signal~String~
+        +selected_aliases: Signal~HashSet~String~~
+        +loading: Signal~bool~
+        +error_message: Signal~Option~String~~
+    }
+
+    %% ===== 关系 =====
+    ShellType --> Alias : 配置路径
+    Alias --> AliasParser : 解析/序列化
+    Alias --> ShellConfigManager : CRUD 操作
+    ShellConfigManager --> AliasParser : 使用
+    ShellConfigManager --> SafeWriter : 使用
+    TemplateLibrary --> AliasParser : 导入时使用
+    TemplateLibrary --> ShellConfigManager : 导入时写入
+    SettingsManager --> AppConfig : 持久化
+    AliasCommands --> ShellConfigManager : 委托
+    TemplateCommands --> TemplateLibrary : 委托
+    SettingsCommands --> SettingsManager : 委托
+    AppState --> Alias : 列表数据
+    AppState --> ShellType : 当前 Shell

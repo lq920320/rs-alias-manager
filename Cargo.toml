@@ -1,0 +1,19 @@
+[package]
+name = "rs-alias-manager"
+version = "0.1.0"
+edition = "2021"
+description = "A system alias manager built with Tauri v2 + Leptos 0.8"
+
+[dependencies]
+leptos = { version = "0.8", features = ["csr"] }
+leptos_router = "0.8"
+leptos_meta = "0.8"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde-wasm-bindgen = "0.6"
+log = "0.4"
+console_log = "1"
+web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "HtmlAnchorElement", "Node", "Event", "EventTarget", "HtmlInputElement", "HtmlTextAreaElement", "HtmlSelectElement", "HtmlButtonElement", "Storage", "MediaQueryList"] }
