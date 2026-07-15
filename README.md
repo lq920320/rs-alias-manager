@@ -94,6 +94,20 @@ cargo tauri build
 # Windows: .msi / .exe
 ```
 
+### Installing Prebuilt Releases
+
+Download from the [Releases page](../../releases).
+
+**macOS**: Because the app is not signed with an Apple Developer certificate, macOS Gatekeeper may show a "file is damaged" error on first launch. This is a security policy, not actual corruption. To fix:
+
+```bash
+sudo xattr -rd com.apple.quarantine /Applications/rs-alias-manager.app
+```
+
+Alternatively, right-click the app in Finder → **Open** → confirm the security prompt.
+
+**Windows**: SmartScreen may warn about an unrecognized publisher. Click **More info** → **Run anyway** to proceed.
+
 ## Project Structure
 
 ```

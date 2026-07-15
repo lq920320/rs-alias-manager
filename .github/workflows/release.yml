@@ -74,6 +74,20 @@ jobs:
             | Windows | `-setup.exe` / `.msi` |
 
             ---
+
+            ### macOS Installation Note
+
+            This app is not signed with an Apple Developer certificate. On first launch you may see a "file is damaged" or "cannot be opened" error. This is macOS Gatekeeper blocking unsigned apps, **not an actual corruption**.
+
+            To fix, run this in Terminal after installing:
+
+            ```bash
+            sudo xattr -rd com.apple.quarantine /Applications/rs-alias-manager.app
+            ```
+
+            Or right-click the app in Finder → **Open** → confirm the security prompt.
+
+            ---
             See [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
           releaseDraft: true
           prerelease: false

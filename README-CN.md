@@ -93,6 +93,20 @@ cargo tauri build
 # Windows 产物为 .msi / .exe
 ```
 
+### 安装预编译版本
+
+从 [Releases 页面](../../releases) 下载。
+
+**macOS**：由于应用未使用 Apple Developer 证书签名，首次打开时 macOS Gatekeeper 可能提示"文件已损坏"。这是安全策略拦截，**并非文件真的损坏**。修复方法：
+
+```bash
+sudo xattr -rd com.apple.quarantine /Applications/rs-alias-manager.app
+```
+
+或在访达中右键点击应用 → **打开** → 在弹窗中确认打开。
+
+**Windows**：SmartScreen 可能提示"未知发布者"，点击"更多信息" → "仍要运行"即可。
+
 ## 项目结构
 
 ```
