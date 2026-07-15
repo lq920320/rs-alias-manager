@@ -674,6 +674,7 @@ a:hover { text-decoration: none; }
   color: var(--text-primary);
   outline: none;
   transition: all var(--transition-fast);
+  text-transform: none;
 }
 
 .form-group__input:focus {
