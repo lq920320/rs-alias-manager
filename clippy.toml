@@ -1,0 +1,11 @@
+# Clippy 配置
+# 适用于整个工作空间
+
+# 允许的最大函数行数
+too-many-lines-threshold = 150
+
+# 允许的最大结构体字段数
+max-struct-bools = 3
+
+# 类型复杂度阈值
+type-complexity-threshold = 350

@@ -3,8 +3,10 @@ use leptos::prelude::*;
 mod api;
 mod app;
 mod components;
+pub mod i18n;
 mod pages;
 mod state;
+pub mod utils;
 
 use state::app_state::AppstateProvider;
 

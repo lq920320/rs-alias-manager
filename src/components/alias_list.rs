@@ -7,6 +7,7 @@
 /// - 空状态展示
 use leptos::prelude::*;
 
+use crate::i18n::t;
 use crate::state::app_state::AppState;
 
 /// 别名列表组件。
@@ -54,9 +55,11 @@ pub fn AliasList(
                             let total = state.aliases.get().len();
                             let filtered = aliases.len();
                             if state.search_query.get().is_empty() {
-                                format!("共 {} 个别名", total)
+                                t("alias.count").replace("{}", &total.to_string())
                             } else {
-                                format!("找到 {} / {} 个别名", filtered, total)
+                                t("alias.count_filtered")
+                                    .replacen("{}", &filtered.to_string(), 1)
+                                    .replacen("{}", &total.to_string(), 1)
                             }
                         }
                     }
@@ -71,7 +74,7 @@ pub fn AliasList(
                                         class="btn btn--danger btn--sm"
                                         on:click=move |_| on_delete_selected.run(())
                                     >
-                                        { format!("删除选中 ({})", selected.len()) }
+                                        { t("alias.delete_selected").replace("{}", &selected.len().to_string()) }
                                     </button>
                                 }.into_any()
                             } else {
@@ -94,9 +97,9 @@ pub fn AliasList(
                             view! {
                                 <div class="empty-state">
                                     <div class="empty-state__icon">"📋"</div>
-                                    <div class="empty-state__title">"还没有别名"</div>
+                                    <div class="empty-state__title">{t("alias.empty_title")}</div>
                                     <div class="empty-state__description">
-                                        "点击右上角的「添加别名」按钮创建你的第一个别名"
+                                        {t("alias.empty_desc")}
                                     </div>
                                 </div>
                             }.into_any()
@@ -104,9 +107,9 @@ pub fn AliasList(
                             view! {
                                 <div class="empty-state">
                                     <div class="empty-state__icon">"🔍"</div>
-                                    <div class="empty-state__title">"没有找到匹配的别名"</div>
+                                    <div class="empty-state__title">{t("alias.search_empty_title")}</div>
                                     <div class="empty-state__description">
-                                        { format!("没有与「{}」匹配的别名", query) }
+                                        { t("alias.search_empty_desc").replace("{}", &query) }
                                     </div>
                                 </div>
                             }.into_any()
@@ -122,7 +125,7 @@ pub fn AliasList(
                                         on:change=move |_| toggle_select_all()
                                     />
                                     <div style="flex:1;font-size:12px;color:var(--text-muted)">
-                                        "全选"
+                                        {t("alias.select_all")}
                                     </div>
                                 </div>
                                 <For
@@ -150,32 +153,42 @@ pub fn AliasList(
                                                 <div class="alias-item__content">
                                                     <div class="alias-item__name">{ alias_name }</div>
                                                     <div class="alias-item__command">{ alias_command }</div>
-                                                    {
-                                                        if alias_tags.is_empty() {
-                                                            view! { <div></div> }.into_any()
-                                                        } else {
-                                                            view! {
-                                                                <div class="alias-item__tags">
-                                                                    {alias_tags.iter().map(|tag| view! {
-                                                                        <span class="tag">{ tag.clone() }</span>
-                                                                    }).collect::<Vec<_>>()}
-                                                                </div>
-                                                            }.into_any()
-                                                        }
-                                                    }
                                                 </div>
+                                                {
+                                                    if alias_tags.is_empty() {
+                                                        view! { <div></div> }.into_any()
+                                                    } else {
+                                                        view! {
+                                                            <div class="alias-item__tags">
+                                                                {alias_tags.iter().enumerate().map(|(i, tag)| {
+                                                                    let color_class = match i % 6 {
+                                                                        0 => "tag--blue",
+                                                                        1 => "tag--green",
+                                                                        2 => "tag--purple",
+                                                                        3 => "tag--orange",
+                                                                        4 => "tag--pink",
+                                                                        _ => "tag--cyan",
+                                                                    };
+                                                                    view! {
+                                                                        <span class=format!("tag {}", color_class)>{ tag.clone() }</span>
+                                                                    }
+                                                                }).collect::<Vec<_>>()}
+                                                            </div>
+                                                        }.into_any()
+                                                    }
+                                                }
                                                 <div class="alias-item__actions">
                                                     <button
                                                         class="btn btn--ghost btn--sm"
                                                         on:click=move |_| on_edit.run((name_for_edit.clone(), cmd_for_edit.clone(), tags_for_edit.clone()))
                                                     >
-                                                        "编辑"
+                                                        {t("alias.edit")}
                                                     </button>
                                                     <button
                                                         class="btn btn--ghost btn--sm text-danger"
                                                         on:click=move |_| on_delete.run(name_for_delete.clone())
                                                     >
-                                                        "删除"
+                                                        {t("alias.delete")}
                                                     </button>
                                                 </div>
                                             </div>

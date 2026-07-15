@@ -3,6 +3,7 @@
 /// 展示用于按分类过滤模板的水平标签栏。
 use leptos::prelude::*;
 
+use crate::i18n::t;
 use crate::state::app_state::TemplateCategory;
 
 /// 模板分类标签页组件。
@@ -24,7 +25,7 @@ pub fn TemplateCategoryTabs(
                 )
                 on:click=move |_| on_select.run(None)
             >
-                "全部"
+                {move || t("template.all")}
             </button>
             {
                 TemplateCategory::all().into_iter().map(|cat| {

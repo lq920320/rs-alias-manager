@@ -1,13 +1,13 @@
 /// 模板操作的 Tauri 命令处理器。
 use tauri::State;
 
-use crate::commands::alias_cmds::AppState;
 use crate::error::AppError;
 use crate::models::alias::Alias;
 use crate::models::template::{Template, TemplateCategory};
 use crate::services::app_settings::AppSettingsManager;
 use crate::services::shell_config::ShellConfigManager;
 use crate::services::template_library;
+use crate::state::AppState;
 
 /// 列出所有可用的内置模板，可选择按分类过滤。
 ///
@@ -41,7 +41,7 @@ pub fn list_templates(category: Option<String>) -> Result<Vec<Template>, AppErro
 /// * `names` - 要导入的模板名称列表
 #[tauri::command]
 pub fn import_templates(state: State<'_, AppState>, names: Vec<String>) -> Result<usize, AppError> {
-    let settings = AppSettingsManager::load(&state.app_data_dir);
+    let settings = state.get_settings();
     let config_path = AppSettingsManager::effective_config_path(&settings);
 
     let templates = template_library::get_builtin_templates();

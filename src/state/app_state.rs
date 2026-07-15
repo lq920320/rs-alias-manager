@@ -9,6 +9,8 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::Locale;
+
 /// 表示前端的 Shell 别名。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Alias {
@@ -51,8 +53,11 @@ impl ShellType {
 
 impl std::fmt::Display for ShellType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = serde_json::to_string(self).unwrap_or_else(|_| "\"bash\"".to_string());
-        write!(f, "{}", s.trim_matches('"'))
+        match self {
+            ShellType::Bash => write!(f, "bash"),
+            ShellType::Zsh => write!(f, "zsh"),
+            ShellType::Fish => write!(f, "fish"),
+        }
     }
 }
 
@@ -87,14 +92,14 @@ pub enum TemplateCategory {
 }
 
 impl TemplateCategory {
-    /// 返回此分类的显示标签。
-    pub fn label(&self) -> &'static str {
+    /// Returns the display label for this category (i18n-aware).
+    pub fn label(&self) -> String {
         match self {
-            TemplateCategory::Git => "Git",
-            TemplateCategory::Docker => "Docker",
-            TemplateCategory::FileOps => "文件操作",
-            TemplateCategory::Network => "网络",
-            TemplateCategory::Custom => "自定义",
+            TemplateCategory::Git => "Git".to_string(),
+            TemplateCategory::Docker => "Docker".to_string(),
+            TemplateCategory::FileOps => crate::i18n::t("category.file_ops"),
+            TemplateCategory::Network => crate::i18n::t("category.network"),
+            TemplateCategory::Custom => crate::i18n::t("category.custom"),
         }
     }
 
@@ -112,8 +117,13 @@ impl TemplateCategory {
 
 impl std::fmt::Display for TemplateCategory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = serde_json::to_string(self).unwrap_or_else(|_| "\"git\"".to_string());
-        write!(f, "{}", s.trim_matches('"'))
+        match self {
+            TemplateCategory::Git => write!(f, "git"),
+            TemplateCategory::Docker => write!(f, "docker"),
+            TemplateCategory::FileOps => write!(f, "fileops"),
+            TemplateCategory::Network => write!(f, "network"),
+            TemplateCategory::Custom => write!(f, "custom"),
+        }
     }
 }
 
@@ -144,15 +154,27 @@ pub struct AppSettings {
     /// 是否自动刷新别名列表。
     #[serde(default = "default_auto_refresh")]
     pub auto_refresh: bool,
+    /// 界面语言。
+    #[serde(default = "default_locale_str")]
+    pub locale: String,
 }
 
 fn default_auto_refresh() -> bool {
     true
 }
 
+fn default_locale_str() -> String {
+    "en".to_string()
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
-        Self { shell_type: ShellType::Bash, custom_config_path: None, auto_refresh: true }
+        Self {
+            shell_type: ShellType::Bash,
+            custom_config_path: None,
+            auto_refresh: true,
+            locale: default_locale_str(),
+        }
     }
 }
 
@@ -187,10 +209,18 @@ pub struct AppState {
     pub error_message: ReadSignal<Option<String>>,
     /// 错误消息的设置器。
     pub set_error_message: WriteSignal<Option<String>>,
+    /// 当前成功消息（如果有的话）。
+    pub success_message: ReadSignal<Option<String>>,
+    /// 成功消息的设置器。
+    pub set_success_message: WriteSignal<Option<String>>,
     /// 应用程序设置。
     pub settings: ReadSignal<AppSettings>,
     /// 应用程序设置的设置器。
     pub set_settings: WriteSignal<AppSettings>,
+    /// 当前界面语言。
+    pub locale: ReadSignal<Locale>,
+    /// 界面语言的设置器。
+    pub set_locale: WriteSignal<Locale>,
 }
 
 impl AppState {
@@ -203,7 +233,9 @@ impl AppState {
         let (selected_aliases, set_selected_aliases) = signal(Vec::new());
         let (loading, set_loading) = signal(false);
         let (error_message, set_error_message) = signal(None::<String>);
+        let (success_message, set_success_message) = signal(None::<String>);
         let (settings, set_settings) = signal(AppSettings::default());
+        let (locale, set_locale) = signal(Locale::En);
 
         Self {
             aliases,
@@ -220,8 +252,12 @@ impl AppState {
             set_loading,
             error_message,
             set_error_message,
+            success_message,
+            set_success_message,
             settings,
             set_settings,
+            locale,
+            set_locale,
         }
     }
 
@@ -244,6 +280,54 @@ impl AppState {
             })
             .collect()
     }
+
+    /// 加载设置和配置路径（多页面共用逻辑）。
+    pub fn load_settings_and_config(&self) {
+        use leptos::task::spawn_local;
+        let state = *self;
+        spawn_local(async move {
+            match crate::api::commands::get_settings().await {
+                Ok(settings) => {
+                    state.set_shell_type.set(settings.shell_type);
+                    // Update locale from settings
+                    if let Ok(loc) = settings.locale.parse::<Locale>() {
+                        state.set_locale.set(loc);
+                    }
+                    state.set_settings.set(settings);
+                },
+                Err(e) => {
+                    log::warn!("Failed to load settings: {}", e);
+                },
+            }
+            match crate::api::commands::get_config_file_path().await {
+                Ok(path) => {
+                    state.set_config_path.set(path);
+                },
+                Err(e) => {
+                    log::warn!("Failed to get config path: {}", e);
+                },
+            }
+        });
+    }
+
+    /// 加载别名列表。
+    pub fn load_aliases(&self) {
+        use leptos::task::spawn_local;
+        let state = *self;
+        spawn_local(async move {
+            state.set_loading.set(true);
+            state.set_error_message.set(None);
+            match crate::api::commands::list_aliases().await {
+                Ok(aliases) => {
+                    state.set_aliases.set(aliases);
+                },
+                Err(e) => {
+                    state.set_error_message.set(Some(e));
+                },
+            }
+            state.set_loading.set(false);
+        });
+    }
 }
 
 /// 向子组件提供 `AppState`。
@@ -251,5 +335,14 @@ impl AppState {
 pub fn AppstateProvider(children: Children) -> impl IntoView {
     let state = AppState::new();
     provide_context(state);
+    // Provide locale signal separately for i18n::t() function access
+    provide_context(state.locale);
+
+    // Update HTML lang attribute when locale changes
+    Effect::new(move || {
+        let locale = state.locale.get();
+        crate::utils::set_html_lang(&locale.to_string());
+    });
+
     children()
 }

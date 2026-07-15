@@ -5,9 +5,9 @@
 /// - 设置自定义配置文件路径
 /// - 切换自动刷新
 use leptos::prelude::*;
-use leptos::task::spawn_local;
 
 use crate::components::settings_form::SettingsForm;
+use crate::i18n::t;
 use crate::state::app_state::AppState;
 
 /// 设置页面组件。
@@ -17,30 +17,12 @@ pub fn SettingsPage() -> impl IntoView {
 
     // 挂载时加载设置
     Effect::new(move || {
-        let state = state;
-        spawn_local(async move {
-            match crate::api::commands::get_settings().await {
-                Ok(settings) => {
-                    state.set_settings.set(settings);
-                },
-                Err(e) => {
-                    state.set_error_message.set(Some(e));
-                },
-            }
-            match crate::api::commands::get_config_file_path().await {
-                Ok(path) => {
-                    state.set_config_path.set(path);
-                },
-                Err(e) => {
-                    log::warn!("Failed to get config path: {}", e);
-                },
-            }
-        });
+        state.load_settings_and_config();
     });
 
     view! {
         <div class="app-header">
-            <h1 class="app-header__title">"设置"</h1>
+            <h1 class="app-header__title">{move || t("settings.title")}</h1>
         </div>
 
         <div class="app-content">

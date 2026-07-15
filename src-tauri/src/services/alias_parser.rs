@@ -4,8 +4,13 @@
 /// - `alias name='command'`（单引号）
 /// - `alias name="command"`（双引号）
 /// - `alias name=command`（无引号）
+///
+/// 标签通过别名行上方的 `# @tags:tag1,tag2` 注释行存储。
 use crate::error::AppError;
 use crate::models::alias::Alias;
+
+/// 标签注释的前缀。
+const TAGS_PREFIX: &str = "# @tags:";
 
 /// 解析 Shell 配置文件中的单个别名行。
 ///
@@ -40,6 +45,24 @@ pub fn parse_alias_line(line: &str) -> Option<Alias> {
 
     let command = parse_command_value(value_part)?;
     Some(Alias::new(name, command))
+}
+
+/// 从注释行解析标签。
+///
+/// 如果行格式为 `# @tags:tag1,tag2`，返回标签列表。
+fn parse_tags_comment(line: &str) -> Option<Vec<String>> {
+    let trimmed = line.trim();
+    if let Some(tags_str) = trimmed.strip_prefix(TAGS_PREFIX) {
+        let tags: Vec<String> = tags_str
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        if !tags.is_empty() {
+            return Some(tags);
+        }
+    }
+    None
 }
 
 /// 解析别名行中的命令值部分。
@@ -82,16 +105,51 @@ fn parse_command_value(value: &str) -> Option<String> {
 /// 将别名格式化为规范的输出行格式。
 ///
 /// 始终使用单引号：`alias name='command'`
+/// 如果存在标签，会在别名行上方输出 `# @tags:tag1,tag2` 注释。
 pub fn format_alias_line(alias: &Alias) -> String {
-    format!("alias {}='{}'", alias.name, alias.command)
+    if alias.tags.is_empty() {
+        format!("alias {}='{}'", alias.name, alias.command)
+    } else {
+        format!(
+            "{}{}
+alias {}='{}'",
+            TAGS_PREFIX,
+            alias.tags.join(","),
+            alias.name,
+            alias.command
+        )
+    }
 }
 
 /// 解析 Shell 配置文件内容中的所有别名行。
 ///
-/// 返回所有成功解析的别名向量。
+/// 返回所有成功解析的别名向量，包含从 `# @tags:` 注释中提取的标签。
 /// 非别名行（注释、空行、其他配置）将被静默跳过。
 pub fn parse_aliases_from_content(content: &str) -> Vec<Alias> {
-    content.lines().filter_map(|line| parse_alias_line(line)).collect()
+    let mut aliases = Vec::new();
+    let mut pending_tags: Option<Vec<String>> = None;
+
+    for line in content.lines() {
+        // 检查是否是标签注释行
+        if let Some(tags) = parse_tags_comment(line) {
+            pending_tags = Some(tags);
+            continue;
+        }
+
+        // 尝试解析别名行
+        if let Some(mut alias) = parse_alias_line(line) {
+            // 如果前一行是标签注释，将标签附加到该别名
+            if let Some(tags) = pending_tags.take() {
+                alias.tags = tags;
+            }
+            aliases.push(alias);
+        } else {
+            // 非别名行且非标签注释，清除待处理标签
+            pending_tags = None;
+        }
+    }
+
+    aliases
 }
 
 /// 通过用提供的别名替换别名行并保留所有非别名行来重建配置文件内容。
@@ -99,39 +157,61 @@ pub fn parse_aliases_from_content(content: &str) -> Vec<Alias> {
 /// - 现有的别名行根据新的别名列表被替换或移除。
 /// - 非别名行（注释、export 等）保持原有顺序。
 /// - 原始文件中不存在的新别名将追加在末尾。
+/// - 标签注释行会被正确处理（移除旧的、添加新的）。
 pub fn rebuild_config_content(original_content: &str, aliases: &[Alias]) -> String {
     let mut result_lines: Vec<String> = Vec::new();
-    let mut new_alias_names: std::collections::HashSet<String> =
+    let new_alias_names: std::collections::HashSet<String> =
         aliases.iter().map(|a| a.name.clone()).collect();
     let mut alias_order: Vec<String> = aliases.iter().map(|a| a.name.clone()).collect();
 
-    // Process existing lines
-    for line in original_content.lines() {
+    let lines: Vec<&str> = original_content.lines().collect();
+    let mut i = 0;
+
+    while i < lines.len() {
+        let line = lines[i];
+
+        // 检查是否是标签注释 + 别名行的组合
+        if parse_tags_comment(line).is_some() && i + 1 < lines.len() {
+            if let Some(parsed) = parse_alias_line(lines[i + 1]) {
+                // 这是一个标签注释 + 别名行的组合
+                if new_alias_names.contains(&parsed.name) {
+                    // 用更新后的别名替换（包含新标签）
+                    if let Some(updated) = aliases.iter().find(|a| a.name == parsed.name) {
+                        result_lines.push(format_alias_line(updated));
+                    }
+                    alias_order.retain(|n| n != &parsed.name);
+                }
+                // 否则别名已删除，跳过标签注释和别名行
+                i += 2;
+                continue;
+            }
+        }
+
+        // 检查是否是单独的别名行（无标签注释）
         if let Some(parsed) = parse_alias_line(line) {
-            // This is an alias line — check if it's in the new set
             if new_alias_names.contains(&parsed.name) {
-                // Find the updated alias and write it
                 if let Some(updated) = aliases.iter().find(|a| a.name == parsed.name) {
                     result_lines.push(format_alias_line(updated));
                 }
-                // Keep name in the set but remove from order (it was already placed)
                 alias_order.retain(|n| n != &parsed.name);
             }
-            // If not in new set, the alias was deleted — skip the line
+            // 如果不在新集合中，该别名已删除——跳过
         } else {
-            // Non-alias line — preserve as-is
+            // 非别名行——保留原样
             result_lines.push(line.to_string());
         }
+
+        i += 1;
     }
 
-    // Append any new aliases that weren't in the original file
+    // 追加原始文件中不存在的新别名
     for name in alias_order {
         if let Some(alias) = aliases.iter().find(|a| a.name == name) {
             result_lines.push(format_alias_line(alias));
         }
     }
 
-    // Ensure file ends with newline
+    // 确保文件以换行符结尾
     let mut result = result_lines.join("\n");
     if !result.is_empty() && !result.ends_with('\n') {
         result.push('\n');

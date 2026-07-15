@@ -6,18 +6,9 @@ use leptos::task::spawn_local;
 
 use crate::components::template_category_tabs::TemplateCategoryTabs;
 use crate::components::template_list::TemplateList;
+use crate::i18n::t;
 use crate::state::app_state::{AppState, TemplateCategory};
-
-fn set_timeout(f: impl FnOnce() + 'static, dur: std::time::Duration) {
-    use wasm_bindgen::closure::Closure;
-    use wasm_bindgen::JsCast;
-    let window = web_sys::window().unwrap();
-    let cb = Closure::once_into_js(move || f());
-    let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
-        cb.unchecked_ref(),
-        dur.as_millis() as i32,
-    );
-}
+use crate::utils::set_timeout;
 
 /// 模板库页面组件。
 #[component]
@@ -56,12 +47,14 @@ pub fn TemplatePage() -> impl IntoView {
                 state.set_error_message.set(None);
                 match crate::api::commands::import_templates(names_clone).await {
                     Ok(count) => {
-                        state.set_error_message.set(Some(format!("成功导入 {} 个别名", count)));
+                        state.set_success_message.set(Some(
+                            t("template.import_success").replace("{}", &count.to_string())
+                        ));
                         set_selected_templates.set(Vec::new());
                         // 延迟清除成功消息
                         set_timeout(
                             move || {
-                                state.set_error_message.set(None);
+                                state.set_success_message.set(None);
                             },
                             std::time::Duration::from_secs(3),
                         );
@@ -77,14 +70,14 @@ pub fn TemplatePage() -> impl IntoView {
 
     view! {
         <div class="app-header">
-            <h1 class="app-header__title">"模板库"</h1>
+            <h1 class="app-header__title">{move || t("template.title")}</h1>
             <div class="app-header__actions">
                 <button
                     class="btn btn--primary"
                     on:click=move |_| on_import()
                     disabled=move || selected_templates.get().is_empty()
                 >
-                    "导入选中"
+                    {move || t("template.import_selected")}
                 </button>
             </div>
         </div>
@@ -92,23 +85,28 @@ pub fn TemplatePage() -> impl IntoView {
         <div class="app-content">
             {
                 move || {
+                    let success = state.success_message.get();
+                    if let Some(msg) = success {
+                        view! {
+                            <div class="alert alert--success mb-lg">
+                                {msg}
+                            </div>
+                        }.into_any()
+                    } else {
+                        view! { <div></div> }.into_any()
+                    }
+                }
+            }
+            
+            {
+                move || {
                     let err = state.error_message.get();
                     if let Some(e) = err {
-                        // 检查是否是成功消息（以"成功"开头）
-                        let is_success = e.starts_with("成功");
-                        if is_success {
-                            view! {
-                                <div class="alert alert--success mb-lg">
-                                    {e}
-                                </div>
-                            }.into_any()
-                        } else {
-                            view! {
-                                <div class="alert alert--error mb-lg">
-                                    {e}
-                                </div>
-                            }.into_any()
-                        }
+                        view! {
+                            <div class="alert alert--error mb-lg">
+                                {e}
+                            </div>
+                        }.into_any()
                     } else {
                         view! { <div></div> }.into_any()
                     }

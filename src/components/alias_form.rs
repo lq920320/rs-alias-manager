@@ -6,6 +6,8 @@
 /// - 标签：可选，逗号分隔
 use leptos::prelude::*;
 
+use crate::i18n::t;
+
 /// 别名表单模态组件。
 ///
 /// # 属性
@@ -28,13 +30,13 @@ pub fn AliasForm(
 
     let validate_name = move |n: &str| -> Result<(), String> {
         if n.is_empty() {
-            return Err("别名名称不能为空".to_string());
+            return Err(t("validate.name_empty"));
         }
         if n.starts_with('-') {
-            return Err("别名名称不能以连字符开头".to_string());
+            return Err(t("validate.name_hyphen"));
         }
         if !n.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
-            return Err("别名名称只能包含字母、数字、下划线和连字符".to_string());
+            return Err(t("validate.name_chars"));
         }
         Ok(())
     };
@@ -42,7 +44,7 @@ pub fn AliasForm(
     let handle_submit = move || {
         let n = name.get();
         let c = command.get();
-        let t = tags_str.get();
+        let tags_input = tags_str.get();
 
         let name_valid = match validate_name(&n) {
             Ok(()) => {
@@ -56,7 +58,7 @@ pub fn AliasForm(
         };
 
         let command_valid = if c.is_empty() {
-            set_command_error.set(Some("命令不能为空".to_string()));
+            set_command_error.set(Some(t("validate.command_empty")));
             false
         } else {
             set_command_error.set(None);
@@ -65,13 +67,13 @@ pub fn AliasForm(
 
         if name_valid && command_valid {
             let tags: Vec<String> =
-                t.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+                tags_input.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
             let old_name = alias.as_ref().map(|a| a.0.clone());
             on_submit.run((old_name, n, c, tags));
         }
     };
 
-    let title = if is_edit { "编辑别名" } else { "添加别名" };
+    let title = if is_edit { t("form.edit_title") } else { t("form.add_title") };
 
     view! {
         <div class="modal-overlay" on:click=move |_| on_cancel.run(())>
@@ -85,12 +87,12 @@ pub fn AliasForm(
                 <div class="modal__body">
                     <div class="form-group">
                         <label class="form-group__label form-group__label--required">
-                            "别名名称"
+                            {t("form.name_label")}
                         </label>
                         <input
                             class=format!("form-group__input{}", if name_error.get().is_some() { " form-group__input--error" } else { "" })
                             type="text"
-                            placeholder="例如: gs"
+                            placeholder=move || t("form.name_placeholder")
                             prop:value=move || name.get()
                             on:input=move |e| set_name.set(event_target_value(&e))
                             disabled=is_edit
@@ -103,17 +105,17 @@ pub fn AliasForm(
                             }
                         }
                         <div class="form-group__hint">
-                            "只能包含字母、数字、下划线和连字符"
+                            {t("form.name_hint")}
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label class="form-group__label form-group__label--required">
-                            "命令"
+                            {t("form.command_label")}
                         </label>
                         <textarea
                             class=format!("form-group__textarea{}", if command_error.get().is_some() { " form-group__input--error" } else { "" })
-                            placeholder="例如: git status"
+                            placeholder=move || t("form.command_placeholder")
                             prop:value=move || command.get()
                             on:input=move |e| set_command.set(event_target_value(&e))
                         ></textarea>
@@ -127,25 +129,25 @@ pub fn AliasForm(
                     </div>
 
                     <div class="form-group">
-                        <label class="form-group__label">"标签"</label>
+                        <label class="form-group__label">{t("form.tags_label")}</label>
                         <input
                             class="form-group__input"
                             type="text"
-                            placeholder="例如: git, 快捷命令（逗号分隔）"
+                            placeholder=move || t("form.tags_placeholder")
                             prop:value=move || tags_str.get()
                             on:input=move |e| set_tags_str.set(event_target_value(&e))
                         />
                         <div class="form-group__hint">
-                            "用逗号分隔多个标签"
+                            {t("form.tags_hint")}
                         </div>
                     </div>
                 </div>
                 <div class="modal__footer">
                     <button class="btn btn--secondary" on:click=move |_| on_cancel.run(())>
-                        "取消"
+                        {t("form.cancel")}
                     </button>
                     <button class="btn btn--primary" on:click=move |_| handle_submit()>
-                        { if is_edit { "保存" } else { "添加" } }
+                        { if is_edit { t("form.save") } else { t("form.add") } }
                     </button>
                 </div>
             </div>

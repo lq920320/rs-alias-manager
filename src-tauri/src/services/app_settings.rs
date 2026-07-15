@@ -20,15 +20,27 @@ pub struct AppSettings {
     /// 配置文件变更时是否自动刷新别名列表。
     #[serde(default = "default_auto_refresh")]
     pub auto_refresh: bool,
+    /// 界面语言（"en" 或 "zh"）。
+    #[serde(default = "default_locale")]
+    pub locale: String,
 }
 
 fn default_auto_refresh() -> bool {
     true
 }
 
+fn default_locale() -> String {
+    "en".to_string()
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
-        Self { shell_type: ShellType::from_env(), custom_config_path: None, auto_refresh: true }
+        Self {
+            shell_type: ShellType::from_env(),
+            custom_config_path: None,
+            auto_refresh: true,
+            locale: default_locale(),
+        }
     }
 }
 
@@ -97,6 +109,7 @@ mod tests {
             shell_type: ShellType::Zsh,
             custom_config_path: Some("/custom/path".to_string()),
             auto_refresh: false,
+            locale: "en".to_string(),
         };
 
         AppSettingsManager::save(&dir, &settings).unwrap();
@@ -115,6 +128,7 @@ mod tests {
             shell_type: ShellType::Bash,
             custom_config_path: Some("/my/custom/bashrc".to_string()),
             auto_refresh: true,
+            locale: "en".to_string(),
         };
         assert_eq!(
             AppSettingsManager::effective_config_path(&settings),
@@ -128,6 +142,7 @@ mod tests {
             shell_type: ShellType::Bash,
             custom_config_path: None,
             auto_refresh: true,
+            locale: "en".to_string(),
         };
         let path = AppSettingsManager::effective_config_path(&settings);
         assert!(path.to_string_lossy().ends_with(".bashrc"));

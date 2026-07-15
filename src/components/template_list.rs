@@ -3,6 +3,7 @@
 /// 展示带有选择复选框的模板列表。
 use leptos::prelude::*;
 
+use crate::i18n::t;
 use crate::state::app_state::Template;
 
 /// 模板列表组件。
@@ -26,9 +27,9 @@ pub fn TemplateList(
                         view! {
                             <div class="empty-state">
                                 <div class="empty-state__icon">"📦"</div>
-                                <div class="empty-state__title">"没有模板"</div>
+                                <div class="empty-state__title">{t("template.empty_title")}</div>
                                 <div class="empty-state__description">
-                                    "该分类下没有可用的模板"
+                                    {t("template.empty_desc")}
                                 </div>
                             </div>
                         }.into_any()

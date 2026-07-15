@@ -1,0 +1,261 @@
+[
+  {
+    "name": "gs",
+    "command": "git status",
+    "description": "查看仓库状态",
+    "category": "git",
+    "tags": ["git", "status"]
+  },
+  {
+    "name": "gl",
+    "command": "git log --oneline --graph --decorate",
+    "description": "查看精简提交日志",
+    "category": "git",
+    "tags": ["git", "log"]
+  },
+  {
+    "name": "ga",
+    "command": "git add",
+    "description": "添加文件到暂存区",
+    "category": "git",
+    "tags": ["git", "add"]
+  },
+  {
+    "name": "gaa",
+    "command": "git add --all",
+    "description": "添加所有文件到暂存区",
+    "category": "git",
+    "tags": ["git", "add"]
+  },
+  {
+    "name": "gc",
+    "command": "git commit",
+    "description": "提交更改",
+    "category": "git",
+    "tags": ["git", "commit"]
+  },
+  {
+    "name": "gcm",
+    "command": "git commit -m",
+    "description": "提交更改并附消息",
+    "category": "git",
+    "tags": ["git", "commit"]
+  },
+  {
+    "name": "gp",
+    "command": "git push",
+    "description": "推送到远程仓库",
+    "category": "git",
+    "tags": ["git", "push"]
+  },
+  {
+    "name": "gpl",
+    "command": "git pull",
+    "description": "从远程仓库拉取",
+    "category": "git",
+    "tags": ["git", "pull"]
+  },
+  {
+    "name": "gd",
+    "command": "git diff",
+    "description": "查看差异",
+    "category": "git",
+    "tags": ["git", "diff"]
+  },
+  {
+    "name": "gb",
+    "command": "git branch",
+    "description": "查看/管理分支",
+    "category": "git",
+    "tags": ["git", "branch"]
+  },
+  {
+    "name": "gco",
+    "command": "git checkout",
+    "description": "切换分支",
+    "category": "git",
+    "tags": ["git", "checkout"]
+  },
+  {
+    "name": "gst",
+    "command": "git stash",
+    "description": "暂存当前修改",
+    "category": "git",
+    "tags": ["git", "stash"]
+  },
+  {
+    "name": "dps",
+    "command": "docker ps",
+    "description": "列出运行中的容器",
+    "category": "docker",
+    "tags": ["docker", "ps"]
+  },
+  {
+    "name": "dpsa",
+    "command": "docker ps -a",
+    "description": "列出所有容器",
+    "category": "docker",
+    "tags": ["docker", "ps"]
+  },
+  {
+    "name": "di",
+    "command": "docker images",
+    "description": "列出镜像",
+    "category": "docker",
+    "tags": ["docker", "images"]
+  },
+  {
+    "name": "drm",
+    "command": "docker rm",
+    "description": "删除容器",
+    "category": "docker",
+    "tags": ["docker", "rm"]
+  },
+  {
+    "name": "drmi",
+    "command": "docker rmi",
+    "description": "删除镜像",
+    "category": "docker",
+    "tags": ["docker", "rmi"]
+  },
+  {
+    "name": "dex",
+    "command": "docker exec -it",
+    "description": "进入容器交互终端",
+    "category": "docker",
+    "tags": ["docker", "exec"]
+  },
+  {
+    "name": "dlog",
+    "command": "docker logs -f",
+    "description": "查看容器日志（跟踪）",
+    "category": "docker",
+    "tags": ["docker", "logs"]
+  },
+  {
+    "name": "dstop",
+    "command": "docker stop",
+    "description": "停止容器",
+    "category": "docker",
+    "tags": ["docker", "stop"]
+  },
+  {
+    "name": "dcom",
+    "command": "docker-compose",
+    "description": "Docker Compose 命令",
+    "category": "docker",
+    "tags": ["docker", "compose"]
+  },
+  {
+    "name": "dup",
+    "command": "docker-compose up -d",
+    "description": "启动 Docker Compose 服务（后台）",
+    "category": "docker",
+    "tags": ["docker", "compose"]
+  },
+  {
+    "name": "ll",
+    "command": "ls -la",
+    "description": "详细列出文件（含隐藏文件）",
+    "category": "fileops",
+    "tags": ["ls", "list"]
+  },
+  {
+    "name": "la",
+    "command": "ls -A",
+    "description": "列出文件（含隐藏，不含 . 和 ..）",
+    "category": "fileops",
+    "tags": ["ls", "list"]
+  },
+  {
+    "name": "lt",
+    "command": "ls -ltr",
+    "description": "按修改时间排序列出文件",
+    "category": "fileops",
+    "tags": ["ls", "list"]
+  },
+  {
+    "name": "lsize",
+    "command": "ls -lhS",
+    "description": "按文件大小排序列出",
+    "category": "fileops",
+    "tags": ["ls", "list"]
+  },
+  {
+    "name": "du1",
+    "command": "du -h --max-depth=1",
+    "description": "查看目录大小（一级深度）",
+    "category": "fileops",
+    "tags": ["du", "disk"]
+  },
+  {
+    "name": "dfh",
+    "command": "df -h",
+    "description": "查看磁盘使用情况",
+    "category": "fileops",
+    "tags": ["df", "disk"]
+  },
+  {
+    "name": "mkdirp",
+    "command": "mkdir -p",
+    "description": "递归创建目录",
+    "category": "fileops",
+    "tags": ["mkdir"]
+  },
+  {
+    "name": "cpv",
+    "command": "cp -rv",
+    "description": "递归复制（显示进度）",
+    "category": "fileops",
+    "tags": ["cp"]
+  },
+  {
+    "name": "rmrf",
+    "command": "rm -rf",
+    "description": "强制递归删除",
+    "category": "fileops",
+    "tags": ["rm"]
+  },
+  {
+    "name": "ping5",
+    "command": "ping -c 5",
+    "description": "Ping 5 次",
+    "category": "network",
+    "tags": ["ping"]
+  },
+  {
+    "name": "ports",
+    "command": "netstat -tulanp",
+    "description": "查看监听端口",
+    "category": "network",
+    "tags": ["netstat", "port"]
+  },
+  {
+    "name": "myip",
+    "command": "curl ifconfig.me",
+    "description": "查看公网 IP",
+    "category": "network",
+    "tags": ["curl", "ip"]
+  },
+  {
+    "name": "localip",
+    "command": "ipconfig getifaddr en0",
+    "description": "查看局域网 IP (macOS)",
+    "category": "network",
+    "tags": ["ip"]
+  },
+  {
+    "name": "curlhead",
+    "command": "curl -I",
+    "description": "查看 HTTP 响应头",
+    "category": "network",
+    "tags": ["curl", "http"]
+  },
+  {
+    "name": "wgetm",
+    "command": "wget --mirror",
+    "description": "镜像下载网站",
+    "category": "network",
+    "tags": ["wget"]
+  }
+]

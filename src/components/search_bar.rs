@@ -1,11 +1,10 @@
-/// 搜索栏组件。
-///
-/// 提供用于过滤别名列表的实时搜索输入。
+/// Search bar component.
 use leptos::prelude::*;
 
+use crate::i18n::t;
 use crate::state::app_state::AppState;
 
-/// 搜索栏组件。
+/// Search bar component.
 #[component]
 pub fn SearchBar() -> impl IntoView {
     let state = use_context::<AppState>().expect("AppState should be provided");
@@ -16,7 +15,7 @@ pub fn SearchBar() -> impl IntoView {
             <input
                 class="search-bar__input"
                 type="text"
-                placeholder="搜索别名..."
+                placeholder=move || t("search.placeholder")
                 prop:value=move || state.search_query.get()
                 on:input=move |e| {
                     state.set_search_query.set(event_target_value(&e));

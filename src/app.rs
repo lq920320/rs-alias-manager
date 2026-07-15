@@ -3,17 +3,18 @@ use leptos_meta::Title;
 use leptos_router::components::{Route, Router, Routes};
 
 use crate::components::sidebar::Sidebar;
+use crate::i18n::t;
 use crate::pages::{
     alias_page::AliasPage, settings_page::SettingsPage, template_page::TemplatePage,
 };
 
-/// 根应用程序组件。
-/// 提供带有侧边栏和路由内容区域的整体布局。
+/// Root application component.
+/// Provides the overall layout with a sidebar and routed content area.
 #[component]
 pub fn App() -> impl IntoView {
     view! {
         <Router>
-            <Title text="别名管理器" />
+            <Title text=move || t("app.title") />
             <div class="app-layout">
                 <Sidebar />
                 <div class="app-main">

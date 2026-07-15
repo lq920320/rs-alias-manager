@@ -65,9 +65,11 @@ impl ShellType {
 
 impl std::fmt::Display for ShellType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = serde_json::to_string(self).unwrap_or_else(|_| "\"bash\"".to_string());
-        // 去除 JSON 字符串的引号
-        write!(f, "{}", s.trim_matches('"'))
+        match self {
+            ShellType::Bash => write!(f, "bash"),
+            ShellType::Zsh => write!(f, "zsh"),
+            ShellType::Fish => write!(f, "fish"),
+        }
     }
 }
 

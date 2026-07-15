@@ -1,11 +1,12 @@
 /// Tauri 后端的库入口点。
 /// 注册所有命令和插件，然后启动应用程序。
 mod commands;
-mod error;
+pub mod error;
 mod models;
-mod services;
+pub mod services;
+pub mod state;
 
-use commands::alias_cmds::AppState;
+use state::AppState;
 use tauri::Manager;
 
 /// 初始化并运行 Tauri 应用程序。
@@ -17,7 +18,7 @@ pub fn run() {
         .setup(|app| {
             // Resolve the app data directory at startup and store it as managed state
             let app_data_dir = app.path().app_data_dir()?;
-            app.manage(AppState { app_data_dir });
+            app.manage(AppState::new(app_data_dir));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -27,6 +28,9 @@ pub fn run() {
             commands::alias_cmds::update_alias,
             commands::alias_cmds::delete_alias,
             commands::alias_cmds::detect_shell,
+            // Batch commands
+            commands::alias_cmds::batch_add_aliases,
+            commands::alias_cmds::batch_delete_aliases,
             // Template commands
             commands::template_cmds::list_templates,
             commands::template_cmds::import_templates,

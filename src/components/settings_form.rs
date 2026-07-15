@@ -7,18 +7,9 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
+use crate::i18n::{t, Locale};
 use crate::state::app_state::{AppState, ShellType};
-
-fn set_timeout(f: impl FnOnce() + 'static, dur: std::time::Duration) {
-    use wasm_bindgen::closure::Closure;
-    use wasm_bindgen::JsCast;
-    let window = web_sys::window().unwrap();
-    let cb = Closure::once_into_js(move || f());
-    let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
-        cb.unchecked_ref(),
-        dur.as_millis() as i32,
-    );
-}
+use crate::utils::set_timeout;
 
 /// 设置表单组件。
 #[component]
@@ -37,7 +28,7 @@ pub fn SettingsForm() -> impl IntoView {
     let save_shell_type = move |shell_str: String| {
         let state = state;
         spawn_local(async move {
-            match crate::api::commands::update_settings(Some(shell_str), None, None).await {
+            match crate::api::commands::update_settings(Some(shell_str), None, None, None).await {
                 Ok(settings) => {
                     let shell_type = settings.shell_type;
                     state.set_settings.set(settings);
@@ -47,7 +38,7 @@ pub fn SettingsForm() -> impl IntoView {
                         Ok(path) => state.set_config_path.set(path),
                         Err(e) => log::warn!("Failed to get config path: {}", e),
                     }
-                    set_save_message.set(Some("Shell 类型已更新".to_string()));
+                    set_save_message.set(Some(t("settings.shell_updated")));
                     set_timeout(
                         move || set_save_message.set(None),
                         std::time::Duration::from_secs(3),
@@ -65,14 +56,14 @@ pub fn SettingsForm() -> impl IntoView {
         let path = custom_path.get();
         let path_opt = if path.is_empty() { None } else { Some(path) };
         spawn_local(async move {
-            match crate::api::commands::update_settings(None, path_opt, None).await {
+            match crate::api::commands::update_settings(None, path_opt, None, None).await {
                 Ok(settings) => {
                     state.set_settings.set(settings);
                     match crate::api::commands::get_config_file_path().await {
                         Ok(p) => state.set_config_path.set(p),
                         Err(e) => log::warn!("Failed to get config path: {}", e),
                     }
-                    set_save_message.set(Some("配置路径已更新".to_string()));
+                    set_save_message.set(Some(t("settings.path_updated")));
                     set_timeout(
                         move || set_save_message.set(None),
                         std::time::Duration::from_secs(3),
@@ -88,7 +79,7 @@ pub fn SettingsForm() -> impl IntoView {
     let save_auto_refresh = move |value: bool| {
         let state = state;
         spawn_local(async move {
-            match crate::api::commands::update_settings(None, None, Some(value)).await {
+            match crate::api::commands::update_settings(None, None, Some(value), None).await {
                 Ok(settings) => {
                     state.set_settings.set(settings);
                 },
@@ -126,13 +117,68 @@ pub fn SettingsForm() -> impl IntoView {
             }
 
             <div class="settings-form__section">
-                <h3 class="settings-form__section-title">"Shell 配置"</h3>
+                <h3 class="settings-form__section-title">{move || t("settings.language")}</h3>
 
                 <div class="settings-form__row">
                     <div>
-                        <div class="settings-form__label">"Shell 类型"</div>
+                        <div class="settings-form__label">{move || t("settings.language")}</div>
                         <div class="settings-form__description">
-                            "选择你要管理的 Shell 配置文件"
+                            {move || t("settings.language_desc")}
+                        </div>
+                    </div>
+                    <select
+                        class="form-group__select"
+                        style="width:160px"
+                        on:change=move |e| {
+                            let val = event_target_value(&e);
+                            let state = state;
+                            spawn_local(async move {
+                                match crate::api::commands::update_settings(None, None, None, Some(val.clone())).await {
+                                    Ok(settings) => {
+                                        if let Ok(loc) = val.parse::<Locale>() {
+                                            state.set_locale.set(loc);
+                                        }
+                                        state.set_settings.set(settings);
+                                        set_save_message.set(Some(t("settings.language_updated")));
+                                        set_timeout(
+                                            move || set_save_message.set(None),
+                                            std::time::Duration::from_secs(3),
+                                        );
+                                    },
+                                    Err(e) => {
+                                        state.set_error_message.set(Some(e));
+                                    },
+                                }
+                            });
+                        }
+                    >
+                        {
+                            move || {
+                                let current = state.locale.get();
+                                Locale::all().into_iter().map(|loc| {
+                                    let value = loc.to_string();
+                                    let selected = loc == current;
+                                    let label = loc.label();
+                                    view! {
+                                        <option value=value selected=selected>
+                                            { label }
+                                        </option>
+                                    }
+                                }).collect::<Vec<_>>()
+                            }
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="settings-form__section">
+                <h3 class="settings-form__section-title">{move || t("settings.shell_config")}</h3>
+
+                <div class="settings-form__row">
+                    <div>
+                        <div class="settings-form__label">{move || t("settings.shell_type")}</div>
+                        <div class="settings-form__description">
+                            {move || t("settings.shell_type_desc")}
                         </div>
                     </div>
                     <select
@@ -162,9 +208,9 @@ pub fn SettingsForm() -> impl IntoView {
 
                 <div class="settings-form__row">
                     <div style="flex:1;margin-right:16px">
-                        <div class="settings-form__label">"自定义配置路径"</div>
+                        <div class="settings-form__label">{move || t("settings.custom_path")}</div>
                         <div class="settings-form__description">
-                            "留空则使用默认路径"
+                            {move || t("settings.custom_path_desc")}
                         </div>
                     </div>
                     <div style="display:flex;gap:8px;align-items:center">
@@ -172,25 +218,25 @@ pub fn SettingsForm() -> impl IntoView {
                             class="form-group__input"
                             type="text"
                             style="width:300px"
-                            placeholder="例如: /home/user/.custom_bashrc"
+                            placeholder=move || t("settings.custom_path_placeholder")
                             prop:value=move || custom_path.get()
                             on:input=move |e| set_custom_path.set(event_target_value(&e))
                         />
                         <button class="btn btn--primary btn--sm" on:click=move |_| save_custom_path()>
-                            "保存"
+                            {move || t("settings.save")}
                         </button>
                     </div>
                 </div>
             </div>
 
             <div class="settings-form__section">
-                <h3 class="settings-form__section-title">"数据管理"</h3>
+                <h3 class="settings-form__section-title">{move || t("settings.data_management")}</h3>
 
                 <div class="settings-form__row">
                     <div>
-                        <div class="settings-form__label">"自动刷新"</div>
+                        <div class="settings-form__label">{move || t("settings.auto_refresh")}</div>
                         <div class="settings-form__description">
-                            "配置文件变更时自动刷新别名列表"
+                            {move || t("settings.auto_refresh_desc")}
                         </div>
                     </div>
                     <label class="toggle">
@@ -209,28 +255,28 @@ pub fn SettingsForm() -> impl IntoView {
 
                 <div class="settings-form__row">
                     <div>
-                        <div class="settings-form__label">"手动刷新"</div>
+                        <div class="settings-form__label">{move || t("settings.manual_refresh")}</div>
                         <div class="settings-form__description">
-                            "立即重新读取配置文件"
+                            {move || t("settings.manual_refresh_desc")}
                         </div>
                     </div>
                     <button class="btn btn--secondary btn--sm" on:click=move |_| reload_aliases()>
-                        "刷新"
+                        {move || t("settings.refresh_btn")}
                     </button>
                 </div>
             </div>
 
             <div class="settings-form__section">
-                <h3 class="settings-form__section-title">"关于"</h3>
+                <h3 class="settings-form__section-title">{move || t("settings.about")}</h3>
                 <div class="card">
                     <div style="color:var(--text-secondary);font-size:14px">
                         <div style="margin-bottom:8px">
                             <strong>"rs-alias-manager"</strong>
                             " v0.1.0"
                         </div>
-                        <div>"基于 Tauri v2 + Leptos 0.8 构建的 Shell 别名管理器"</div>
+                        <div>{move || t("settings.about_desc")}</div>
                         <div style="margin-top:8px">
-                            "支持 Bash、Zsh、Fish 配置文件管理"
+                            {move || t("settings.about_support")}
                         </div>
                     </div>
                 </div>

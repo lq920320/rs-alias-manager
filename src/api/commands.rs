@@ -3,6 +3,7 @@
 /// 提供类型安全的异步函数，通过 `window.__TAURI__.core.invoke()` 调用 Tauri 后端命令。
 /// 在 Tauri 外部运行时（例如 `trunk serve`）回退到空/默认数据。
 use crate::state::app_state::{Alias, AppSettings};
+use serde::Deserialize;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
@@ -76,6 +77,7 @@ pub async fn update_alias(
         return Ok(());
     }
     #[derive(serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
     struct Args {
         old_name: String,
         name: String,
@@ -154,6 +156,7 @@ pub async fn update_settings(
     shell_type: Option<String>,
     custom_config_path: Option<String>,
     auto_refresh: Option<bool>,
+    locale: Option<String>,
 ) -> Result<AppSettings, String> {
     if !is_tauri() {
         log::info!("[mock] update_settings");
@@ -164,8 +167,9 @@ pub async fn update_settings(
         shell_type: Option<String>,
         custom_config_path: Option<String>,
         auto_refresh: Option<bool>,
+        locale: Option<String>,
     }
-    let args = serde_wasm_bindgen::to_value(&Args { shell_type, custom_config_path, auto_refresh })
+    let args = serde_wasm_bindgen::to_value(&Args { shell_type, custom_config_path, auto_refresh, locale })
         .map_err(|e| format!("serialize args failed: {}", e))?;
     invoke::<AppSettings>("update_settings", args).await
 }
@@ -176,4 +180,43 @@ pub async fn get_config_file_path() -> Result<String, String> {
         return Ok("~/.zshrc".to_string());
     }
     invoke::<String>("get_config_file_path", JsValue::NULL).await
+}
+
+/// 批量操作的结果。
+#[derive(Deserialize)]
+pub struct BatchResult {
+    /// 成功操作的数量。
+    pub success_count: usize,
+    /// 失败的错误信息列表。
+    pub errors: Vec<String>,
+}
+
+/// 批量添加别名。
+pub async fn batch_add_aliases(aliases: Vec<Alias>) -> Result<BatchResult, String> {
+    if !is_tauri() {
+        log::info!("[mock] batch_add_aliases: {} items", aliases.len());
+        return Ok(BatchResult { success_count: aliases.len(), errors: vec![] });
+    }
+    #[derive(serde::Serialize)]
+    struct Args {
+        aliases: Vec<Alias>,
+    }
+    let args = serde_wasm_bindgen::to_value(&Args { aliases })
+        .map_err(|e| format!("serialize args failed: {}", e))?;
+    invoke::<BatchResult>("batch_add_aliases", args).await
+}
+
+/// 批量删除别名。
+pub async fn batch_delete_aliases(names: Vec<String>) -> Result<BatchResult, String> {
+    if !is_tauri() {
+        log::info!("[mock] batch_delete_aliases: {:?}", names);
+        return Ok(BatchResult { success_count: names.len(), errors: vec![] });
+    }
+    #[derive(serde::Serialize)]
+    struct Args {
+        names: Vec<String>,
+    }
+    let args = serde_wasm_bindgen::to_value(&Args { names })
+        .map_err(|e| format!("serialize args failed: {}", e))?;
+    invoke::<BatchResult>("batch_delete_aliases", args).await
 }

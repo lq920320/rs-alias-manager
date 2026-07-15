@@ -8,6 +8,7 @@ use leptos::prelude::*;
 use leptos_router::components::A;
 use leptos_router::hooks::use_location;
 
+use crate::i18n::t;
 use crate::state::app_state::AppState;
 
 fn set_theme_on_html(dark: bool) {
@@ -78,36 +79,39 @@ pub fn Sidebar() -> impl IntoView {
     view! {
         <nav class="sidebar">
             <div class="sidebar__logo">
-                "别名管理器"
+                {move || t("app.title")}
             </div>
             <div class="sidebar__nav">
                 {move || {
                     let loc = location.pathname.get();
+                    let _locale = state.locale.get(); // subscribe to locale changes
                     let active = is_active("/", &loc);
                     view! {
                         <A href="/" attr:class=move || if active { "sidebar__nav-item sidebar__nav-item--active" } else { "sidebar__nav-item" }>
                             <span class="sidebar__nav-icon">"\u{26a1}"</span>
-                            "别名管理"
+                            {t("nav.aliases")}
                         </A>
                     }
                 }}
                 {move || {
                     let loc = location.pathname.get();
+                    let _locale = state.locale.get();
                     let active = is_active("/templates", &loc);
                     view! {
                         <A href="/templates" attr:class=move || if active { "sidebar__nav-item sidebar__nav-item--active" } else { "sidebar__nav-item" }>
                             <span class="sidebar__nav-icon">"\u{1f4e6}"</span>
-                            "模板库"
+                            {t("nav.templates")}
                         </A>
                     }
                 }}
                 {move || {
                     let loc = location.pathname.get();
+                    let _locale = state.locale.get();
                     let active = is_active("/settings", &loc);
                     view! {
                         <A href="/settings" attr:class=move || if active { "sidebar__nav-item sidebar__nav-item--active" } else { "sidebar__nav-item" }>
                             <span class="sidebar__nav-icon">"\u{2699}"</span>
-                            "设置"
+                            {t("nav.settings")}
                         </A>
                     }
                 }}
@@ -115,7 +119,7 @@ pub fn Sidebar() -> impl IntoView {
             <div class="sidebar__footer">
                 <button class="theme-toggle" on:click=toggle_theme>
                     <span class="theme-toggle__icon">{move || if is_dark.get() { "\u{2600}" } else { "\u{1f319}" }}</span>
-                    {move || if is_dark.get() { "浅色模式" } else { "暗色模式" }}
+                    {move || if is_dark.get() { t("theme.light") } else { t("theme.dark") }}
                 </button>
                 {
                     move || {
