@@ -220,3 +220,47 @@ pub async fn batch_delete_aliases(names: Vec<String>) -> Result<BatchResult, Str
         .map_err(|e| format!("serialize args failed: {}", e))?;
     invoke::<BatchResult>("batch_delete_aliases", args).await
 }
+
+/// 更新检查结果。
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct UpdateInfo {
+    /// 当前应用程序版本。
+    pub current_version: String,
+    /// 最新发布的版本。
+    pub latest_version: String,
+    /// 是否存在比当前版本更新的版本。
+    pub has_update: bool,
+    /// 发布页面的 URL。
+    pub release_url: String,
+    /// 发布说明（changelog），可能为空。
+    pub release_notes: Option<String>,
+    /// 发布时间（ISO 8601 格式字符串）。
+    pub published_at: Option<String>,
+}
+
+/// 检查应用程序是否有可用更新。
+///
+/// 通过后端调用 GitHub Releases API 获取最新版本并与当前版本比较。
+/// 在 Tauri 环境外运行时返回一个「已是最新」的默认结果。
+pub async fn check_for_updates() -> Result<UpdateInfo, String> {
+    if !is_tauri() {
+        log::info!("[mock] check_for_updates");
+        return Ok(UpdateInfo {
+            current_version: "0.0.0".to_string(),
+            latest_version: "0.0.0".to_string(),
+            has_update: false,
+            release_url: String::new(),
+            release_notes: None,
+            published_at: None,
+        });
+    }
+    invoke::<UpdateInfo>("check_for_updates", JsValue::NULL).await
+}
+
+/// 获取当前应用程序版本号。
+pub async fn get_app_version() -> Result<String, String> {
+    if !is_tauri() {
+        return Ok("0.0.0".to_string());
+    }
+    invoke::<String>("get_app_version", JsValue::NULL).await
+}

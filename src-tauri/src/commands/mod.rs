@@ -2,3 +2,4 @@
 pub mod alias_cmds;
 pub mod settings_cmds;
 pub mod template_cmds;
+pub mod update_cmds;

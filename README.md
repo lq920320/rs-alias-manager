@@ -48,6 +48,7 @@ Shell aliases are a daily productivity booster for terminal users. However, mana
 | Safe Write | Temp file + atomic rename prevents config corruption |
 | Settings Cache | Backend caches settings to reduce file I/O |
 | CSP Security | Content Security Policy configured for WebView |
+| Update Check | Manual update check from Settings or the app menu |
 
 ## Quick Start
 
@@ -107,6 +108,15 @@ sudo xattr -rd com.apple.quarantine /Applications/rs-alias-manager.app
 Alternatively, right-click the app in Finder → **Open** → confirm the security prompt.
 
 **Windows**: SmartScreen may warn about an unrecognized publisher. Click **More info** → **Run anyway** to proceed.
+
+### Checking for Updates
+
+rs-alias-manager includes a manual update check so you can verify whether a newer release is available.
+
+- Use the app menu: `rs-alias-manager` → **Check for Updates...**.
+- Or open the Settings page and click **Check for Updates**.
+- If a newer version is available, the app will offer to open the release download page.
+- If you are already on the latest version, it will show a confirmation message.
 
 ## Project Structure
 

@@ -4,3 +4,4 @@ pub mod app_settings;
 pub mod safe_writer;
 pub mod shell_config;
 pub mod template_library;
+pub mod update_checker;

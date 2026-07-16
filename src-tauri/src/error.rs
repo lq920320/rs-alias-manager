@@ -33,6 +33,10 @@ pub enum AppError {
     /// JSON 序列化/反序列化错误。
     #[error("JSON 错误: {0}")]
     JsonError(#[from] serde_json::Error),
+
+    /// 网络请求错误（检查更新等）。
+    #[error("网络错误: {0}")]
+    NetworkError(String),
 }
 
 // 手动实现 Serialize，以便 AppError 可以从 Tauri 命令中返回。

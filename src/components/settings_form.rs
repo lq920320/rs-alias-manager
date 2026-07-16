@@ -7,6 +7,7 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
+use crate::api::commands::UpdateInfo;
 use crate::i18n::{t, Locale};
 use crate::state::app_state::{AppState, ShellType};
 use crate::utils::set_timeout;
@@ -18,11 +19,26 @@ pub fn SettingsForm() -> impl IntoView {
 
     let (custom_path, set_custom_path) = signal(String::new());
     let (save_message, set_save_message) = signal(None::<String>);
+    // 更新检查相关状态
+    let (app_version, set_app_version) = signal(String::new());
+    let (update_checking, set_update_checking) = signal(false);
+    let (update_info, set_update_info) = signal(None::<UpdateInfo>);
+    let (update_error, set_update_error) = signal(None::<String>);
 
     // 从设置中初始化自定义路径
     Effect::new(move || {
         let settings = state.settings.get();
         set_custom_path.set(settings.custom_config_path.clone().unwrap_or_default());
+    });
+
+    // 挂载时获取当前应用版本号
+    Effect::new(move || {
+        spawn_local(async move {
+            match crate::api::commands::get_app_version().await {
+                Ok(v) => set_app_version.set(v),
+                Err(e) => log::warn!("Failed to get app version: {}", e),
+            }
+        });
     });
 
     let save_shell_type = move |shell_str: String| {
@@ -103,6 +119,22 @@ pub fn SettingsForm() -> impl IntoView {
                 },
             }
             state.set_loading.set(false);
+        });
+    };
+
+    let check_updates = move || {
+        set_update_checking.set(true);
+        set_update_error.set(None);
+        set_update_info.set(None);
+        spawn_local(async move {
+            match crate::api::commands::check_for_updates().await {
+                Ok(info) => set_update_info.set(Some(info)),
+                Err(e) => {
+                    log::warn!("Failed to check for updates: {}", e);
+                    set_update_error.set(Some(t("update.network_error")));
+                },
+            }
+            set_update_checking.set(false);
         });
     };
 
@@ -272,12 +304,77 @@ pub fn SettingsForm() -> impl IntoView {
                     <div style="color:var(--text-secondary);font-size:14px">
                         <div style="margin-bottom:8px">
                             <strong>"rs-alias-manager"</strong>
-                            " v0.1.0"
+                            {move || if app_version.get().is_empty() {
+                                String::new()
+                            } else {
+                                format!(" v{}", app_version.get())
+                            }}
                         </div>
                         <div>{move || t("settings.about_desc")}</div>
                         <div style="margin-top:8px">
                             {move || t("settings.about_support")}
                         </div>
+                    </div>
+
+                    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-color)">
+                        <div class="settings-form__row">
+                            <div>
+                                <div class="settings-form__label">
+                                    {move || t("update.check_btn")}
+                                </div>
+                                <div class="settings-form__description">
+                                    {move || t("update.latest_version")}
+                                    {move || {
+                                        update_info.get().map(|i| format!(": v{}", i.latest_version)).unwrap_or_default()
+                                    }}
+                                </div>
+                            </div>
+                            <button
+                                class="btn btn--primary btn--sm"
+                                disabled=move || update_checking.get()
+                                on:click=move |_| check_updates()
+                            >
+                                {move || if update_checking.get() { t("update.checking") } else { t("update.check_btn") }}
+                            </button>
+                        </div>
+
+                        {move || {
+                            if update_checking.get() {
+                                return view! { <div style="margin-top:12px"></div> }.into_any();
+                            }
+                            if let Some(e) = update_error.get() {
+                                return view! {
+                                    <div class="alert alert--error" style="margin-top:12px">{ e }</div>
+                                }.into_any();
+                            }
+                            if let Some(info) = update_info.get() {
+                                if info.has_update {
+                                    // 版本不一致：显示「下载最新版本」链接
+                                    view! {
+                                        <div style="margin-top:12px">
+                                            <a
+                                                href=info.release_url.clone()
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                class="btn btn--primary btn--sm"
+                                                style="display:inline-block;text-decoration:none"
+                                            >
+                                                {move || t("update.download_latest")}
+                                            </a>
+                                        </div>
+                                    }.into_any()
+                                } else {
+                                    // 版本一致：显示「当前已是最新版本」
+                                    view! {
+                                        <div class="alert alert--success" style="margin-top:12px">
+                                            {move || t("update.up_to_date")}
+                                        </div>
+                                    }.into_any()
+                                }
+                            } else {
+                                view! { <div></div> }.into_any()
+                            }
+                        }}
                     </div>
                 </div>
             </div>

@@ -163,6 +163,13 @@ fn en(key: &str) -> &'static str {
         "settings.shell_updated" => "Shell type updated",
         "settings.path_updated" => "Config path updated",
         "settings.language_updated" => "Language updated",
+        // Update check
+        "update.check_btn" => "Check for Updates",
+        "update.checking" => "Checking...",
+        "update.latest_version" => "Latest version",
+        "update.download_latest" => "Download Latest",
+        "update.up_to_date" => "You're up to date",
+        "update.network_error" => "Failed to check for updates. Please check your network connection.",
         _ => "[missing]",
     }
 }
@@ -253,6 +260,13 @@ fn zh(key: &str) -> &'static str {
         "settings.shell_updated" => "Shell 类型已更新",
         "settings.path_updated" => "配置路径已更新",
         "settings.language_updated" => "语言已更新",
+        // 更新检查
+        "update.check_btn" => "检查更新",
+        "update.checking" => "检查中...",
+        "update.latest_version" => "最新版本",
+        "update.download_latest" => "下载最新版本",
+        "update.up_to_date" => "当前已是最新版本",
+        "update.network_error" => "检查更新失败，请检查网络连接。",
         _ => en(key),
     }
 }
