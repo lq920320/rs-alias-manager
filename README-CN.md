@@ -1,14 +1,24 @@
-# rs-alias-manager (别名管理器)
+# rs-alias-manager 别名管理器 — Bash / Zsh / Fish Shell 别名管理工具
 
 <p align="center">
-  <img src="docs/logo.png" alt="rs-alias-manager" width="200" />
+  <img src="docs/logo.png" alt="rs-alias-manager 别名管理器 — 基于 Rust 与 Tauri 的跨平台 Shell 别名管理 GUI" width="200" />
 </p>
 
 <p align="center">
-  <strong>🦀 用 Rust 构建的现代化桌面端 Shell 别名管理器</strong>
+  <strong>🦀 用 Rust、Tauri v2 与 Leptos 构建的现代化跨平台桌面应用，可视化创建、编辑、搜索和管理 Bash / Zsh / Fish 的 Shell 别名（alias）。</strong>
 </p>
 
 <p align="center">
+  <a href="https://github.com/lq920320/rs-alias-manager/releases"><img src="https://img.shields.io/github/v/release/lq920320/rs-alias-manager?label=release&logo=github" alt="最新版本" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/lq920320/rs-alias-manager" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="支持平台：macOS、Linux、Windows" />
+  <img src="https://img.shields.io/badge/Rust-1.75%2B-orange?logo=rust" alt="Rust 1.75+" />
+  <img src="https://img.shields.io/badge/Tauri-v2-24C8DB?logo=tauri" alt="基于 Tauri v2 构建" />
+  <a href="https://github.com/lq920320/rs-alias-manager/stargazers"><img src="https://img.shields.io/github/stars/lq920320/rs-alias-manager?style=social" alt="GitHub stars" /></a>
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> ·
   <a href="#项目背景">背景</a> ·
   <a href="#功能特性">特性</a> ·
   <a href="#快速开始">快速开始</a> ·
@@ -18,6 +28,8 @@
 </p>
 
 ---
+
+> **rs-alias-manager（别名管理器）** 是一款免费开源的 **Shell 别名管理工具**，提供简洁的桌面图形界面。你可以可视化地创建、编辑、搜索、打标签、导入导出终端别名，无需再手动编辑 `.bashrc`、`.zshrc` 或 `config.fish`。原生支持 **macOS、Linux、Windows**，兼容 **Bash、Zsh、Fish**。
 
 ## 项目背景
 
@@ -69,7 +81,7 @@ rustup target add wasm32-unknown-unknown
 
 ```bash
 # 克隆项目
-git clone https://github.com/your-username/rs-alias-manager.git
+git clone https://github.com/lq920320/rs-alias-manager.git
 cd rs-alias-manager
 
 # 启动开发模式（Tauri 桌面窗口 + 热重载）
@@ -233,6 +245,12 @@ cd src-tauri && cargo check && cargo test
 ## 许可证
 
 本项目采用 [MIT License](LICENSE) 开源。
+
+## 关键词
+
+Shell 别名管理器 · alias 管理工具 · Zsh 别名管理 · Bash 别名管理 · Fish 别名管理 · 别名 GUI · 可视化管理别名 · `.zshrc` 编辑器 · `.bashrc` 编辑器 · 终端效率工具 · Rust 桌面应用 · Tauri v2 应用 · Leptos WASM · 跨平台 macOS / Linux / Windows · 开源别名工具
+
+> **提示：** 如果你是仓库维护者，建议在 GitHub 仓库中添加以下 **Topics**（Settings → Topics）以提升搜索曝光：`alias-manager`、`shell`、`zsh`、`bash`、`fish`、`rust`、`tauri`、`leptos`、`desktop-app`、`cross-platform`、`terminal`、`productivity`。
 
 ---
 

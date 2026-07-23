@@ -1,11 +1,20 @@
-# rs-alias-manager
+# rs-alias-manager — Shell Alias Manager for Bash, Zsh & Fish
 
 <p align="center">
-  <img src="docs/logo.png" alt="rs-alias-manager" width="200" />
+  <img src="docs/logo.png" alt="rs-alias-manager — cross-platform shell alias manager GUI built with Rust and Tauri" width="200" />
 </p>
 
 <p align="center">
-  <strong>🦀 A modern desktop Shell alias manager built with Rust</strong>
+  <strong>🦀 A modern, cross-platform desktop GUI to create, edit, search, and organize your shell aliases for Bash, Zsh, and Fish — built with Rust, Tauri v2, and Leptos.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/lq920320/rs-alias-manager/releases"><img src="https://img.shields.io/github/v/release/lq920320/rs-alias-manager?label=release&logo=github" alt="Latest release" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/lq920320/rs-alias-manager" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Supported platforms: macOS, Linux, Windows" />
+  <img src="https://img.shields.io/badge/Rust-1.75%2B-orange?logo=rust" alt="Rust 1.75+" />
+  <img src="https://img.shields.io/badge/Tauri-v2-24C8DB?logo=tauri" alt="Built with Tauri v2" />
+  <a href="https://github.com/lq920320/rs-alias-manager/stargazers"><img src="https://img.shields.io/github/stars/lq920320/rs-alias-manager?style=social" alt="GitHub stars" /></a>
 </p>
 
 <p align="center">
@@ -19,6 +28,8 @@
 </p>
 
 ---
+
+> **rs-alias-manager** is a free and open-source **shell alias manager** with a clean desktop UI. Create, edit, search, tag, import, and export your terminal aliases without ever manually editing `.bashrc`, `.zshrc`, or `config.fish`. It runs natively on **macOS, Linux, and Windows** and supports **Bash, Zsh, and Fish**.
 
 ## Background
 
@@ -70,7 +81,7 @@ rustup target add wasm32-unknown-unknown
 
 ```bash
 # Clone
-git clone https://github.com/your-username/rs-alias-manager.git
+git clone https://github.com/lq920320/rs-alias-manager.git
 cd rs-alias-manager
 
 # Start dev mode (Tauri desktop window + hot reload)
@@ -234,6 +245,12 @@ Follows [Conventional Commits](https://www.conventionalcommits.org/):
 ## License
 
 [MIT License](LICENSE)
+
+## Keywords
+
+Shell alias manager · Zsh alias manager · Bash alias manager · Fish alias manager · alias GUI · manage shell aliases · `.zshrc` editor · `.bashrc` editor · terminal productivity tool · Rust desktop app · Tauri v2 application · Leptos WASM UI · cross-platform macOS / Linux / Windows · open-source alias tool
+
+> **Tip:** If you are the repository maintainer, add these as GitHub **Topics** (Settings → Topics) to boost discoverability: `alias-manager`, `shell`, `zsh`, `bash`, `fish`, `rust`, `tauri`, `leptos`, `desktop-app`, `cross-platform`, `terminal`, `productivity`.
 
 ---
 
