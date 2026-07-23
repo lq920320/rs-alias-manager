@@ -31,6 +31,8 @@
 
 > **rs-alias-manager（别名管理器）** 是一款免费开源的 **Shell 别名管理工具**，提供简洁的桌面图形界面。你可以可视化地创建、编辑、搜索、打标签、导入导出终端别名，无需再手动编辑 `.bashrc`、`.zshrc` 或 `config.fish`。原生支持 **macOS、Linux、Windows**，兼容 **Bash、Zsh、Fish**。
 
+![首页截图](https://github.com/user-attachments/assets/b8997d0e-7ffb-49c4-936c-36fcebe68f0e)
+
 ## 项目背景
 
 在日常终端开发中，Shell 别名（alias）是提升效率的利器。但管理它们通常需要手动编辑 `.bashrc` 或 `.zshrc`，不仅容易因语法错误导致配置文件失效，在多台机器间同步别名也极其繁琐。
