@@ -31,6 +31,8 @@
 
 > **rs-alias-manager** is a free and open-source **shell alias manager** with a clean desktop UI. Create, edit, search, tag, import, and export your terminal aliases without ever manually editing `.bashrc`, `.zshrc`, or `config.fish`. It runs natively on **macOS, Linux, and Windows** and supports **Bash, Zsh, and Fish**.
 
+![screen-shot](https://github.com/user-attachments/assets/0a5c0cd6-4b28-4a78-8b1b-15c780edc7e6)
+
 ## Background
 
 Shell aliases are a daily productivity booster for terminal users. However, managing them typically requires manually editing `.bashrc` or `.zshrc`, which is error-prone and tedious to sync across machines.
