@@ -38,5 +38,9 @@
       "icons/icon.ico"
     ]
   },
-  "plugins": {}
+  "plugins": {
+    "opener": {
+      "open-url": true
+    }
+  }
 }

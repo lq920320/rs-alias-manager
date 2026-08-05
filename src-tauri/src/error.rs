@@ -37,6 +37,14 @@ pub enum AppError {
     /// 网络请求错误（检查更新等）。
     #[error("网络错误: {0}")]
     NetworkError(String),
+
+    /// GitHub API 触发了速率限制（HTTP 403）。
+    #[error("GitHub API 请求过于频繁，请稍后再试")]
+    RateLimited,
+
+    /// 未找到仓库的发布记录（GitHub 返回 404）。
+    #[error("未找到仓库的发布版本，请确认仓库地址是否正确")]
+    ReleaseNotFound,
 }
 
 // 手动实现 Serialize，以便 AppError 可以从 Tauri 命令中返回。

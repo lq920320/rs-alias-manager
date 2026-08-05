@@ -17,6 +17,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             // Resolve the app data directory at startup and store it as managed state
             let app_data_dir = app.path().app_data_dir()?;
@@ -112,7 +113,7 @@ pub fn run() {
 /// - 请求失败：显示错误信息
 fn handle_check_updates_menu(app: &tauri::AppHandle) {
     use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
-    use tauri_plugin_shell::ShellExt;
+    use tauri_plugin_opener::OpenerExt;
 
     // 读取当前界面语言，决定对话框文案
     let is_zh = app
@@ -146,10 +147,8 @@ fn handle_check_updates_menu(app: &tauri::AppHandle) {
                         .buttons(MessageDialogButtons::YesNo)
                         .show(move |confirmed| {
                             if confirmed {
-                                // shell().open() 在新版中标记为 deprecated（建议改用 opener 插件），
-                                // 但本应用已集成 shell 插件，这里继续使用以避免引入额外依赖。
-                                #[allow(deprecated)]
-                                let _ = app_for_cb.shell().open(url, None);
+                                // 使用 Tauri v2 官方推荐的 opener 插件打开发布页
+                                let _ = app_for_cb.opener().open_url(url, None::<&str>);
                             }
                         });
                 } else {

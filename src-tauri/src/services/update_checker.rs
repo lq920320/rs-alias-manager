@@ -88,14 +88,29 @@ pub fn is_newer(current: &semver::Version, latest: &semver::Version) -> bool {
 pub fn check_for_updates(current_version: &str) -> Result<UpdateInfo, AppError> {
     let url = format!("{}/{}/releases/latest", GITHUB_API_BASE, GITHUB_REPO);
 
-    let response: GitHubRelease = ureq::get(&url)
+    let call_result = ureq::get(&url)
         .set("User-Agent", "rs-alias-manager")
         .set("Accept", "application/vnd.github+json")
         .timeout(std::time::Duration::from_secs(REQUEST_TIMEOUT_SECS))
-        .call()
-        .map_err(|e| AppError::NetworkError(format!("GitHub API 请求失败: {}", e)))?
+        .call();
+
+    // ureq 在 HTTP 非 2xx 响应时以 Err 返回，借此区分限流 / 404 等情形，给出更精准提示。
+    let response = match call_result {
+        Ok(resp) => resp,
+        Err(ureq::Error::Status(status, _)) if status == 403 => {
+            return Err(AppError::RateLimited);
+        }
+        Err(ureq::Error::Status(status, _)) if status == 404 => {
+            return Err(AppError::ReleaseNotFound);
+        }
+        Err(e) => {
+            return Err(AppError::NetworkError(format!("GitHub API 请求失败: {e}")));
+        }
+    };
+
+    let response: GitHubRelease = response
         .into_json()
-        .map_err(|e| AppError::NetworkError(format!("解析 GitHub 响应失败: {}", e)))?;
+        .map_err(|e| AppError::NetworkError(format!("解析 GitHub 响应失败: {e}")))?;
 
     let current = parse_version(current_version)?;
     let latest = parse_version(&response.tag_name)?;
