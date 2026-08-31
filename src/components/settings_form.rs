@@ -7,10 +7,28 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
-use crate::api::commands::UpdateInfo;
+use crate::api::commands::{BackupEntry, UpdateInfo};
 use crate::i18n::{t, Locale};
 use crate::state::app_state::{AppState, ShellType};
 use crate::utils::set_timeout;
+use wasm_bindgen::JsValue;
+
+/// 将 Unix 毫秒时间戳格式化为浏览器本地时间字符串。
+fn format_backup_time(ms: u64) -> String {
+    let date = js_sys::Date::new(&JsValue::from_f64(ms as f64));
+    date.to_locale_string("default", &JsValue::UNDEFINED).into()
+}
+
+/// 将字节数格式化为人类可读的大小（B/KB/MB）。
+fn format_backup_size(bytes: u64) -> String {
+    if bytes >= 1024 * 1024 {
+        format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
+    } else if bytes >= 1024 {
+        format!("{:.1} KB", bytes as f64 / 1024.0)
+    } else {
+        format!("{} B", bytes)
+    }
+}
 
 /// 设置表单组件。
 #[component]
@@ -24,6 +42,53 @@ pub fn SettingsForm() -> impl IntoView {
     let (update_checking, set_update_checking) = signal(false);
     let (update_info, set_update_info) = signal(None::<UpdateInfo>);
     let (update_error, set_update_error) = signal(None::<String>);
+    // 备份列表状态
+    let (backups, set_backups) = signal(Vec::<BackupEntry>::new());
+
+    // 加载备份列表（最新在前）
+    let load_backups = move || {
+        spawn_local(async move {
+            match crate::api::commands::list_backups().await {
+                Ok(list) => set_backups.set(list),
+                Err(e) => log::warn!("Failed to load backups: {}", e),
+            }
+        });
+    };
+
+    // 挂载时加载备份列表
+    Effect::new(move || {
+        load_backups();
+    });
+
+    // 恢复指定备份：原生确认框二次确认，成功后刷新备份与别名列表
+    let on_restore_backup = {
+        let state = state;
+        move |id: String| {
+            let state = state;
+            let confirmed = web_sys::window()
+                .and_then(|w| w.confirm_with_message(&t("settings.backup_restore_confirm")).ok())
+                .unwrap_or(false);
+            if !confirmed {
+                return;
+            }
+            spawn_local(async move {
+                match crate::api::commands::restore_backup(id).await {
+                    Ok(_) => {
+                        set_save_message.set(Some(t("settings.backup_restored")));
+                        set_timeout(
+                            move || set_save_message.set(None),
+                            std::time::Duration::from_secs(3),
+                        );
+                        load_backups();
+                        state.load_aliases();
+                    },
+                    Err(e) => {
+                        state.set_error_message.set(Some(e.display()));
+                    },
+                }
+            });
+        }
+    };
 
     // 从设置中初始化自定义路径
     Effect::new(move || {
@@ -44,7 +109,7 @@ pub fn SettingsForm() -> impl IntoView {
     let save_shell_type = move |shell_str: String| {
         let state = state;
         spawn_local(async move {
-            match crate::api::commands::update_settings(Some(shell_str), None, None, None).await {
+            match crate::api::commands::update_settings(Some(shell_str), None, None, None, None).await {
                 Ok(settings) => {
                     let shell_type = settings.shell_type;
                     state.set_settings.set(settings);
@@ -61,7 +126,7 @@ pub fn SettingsForm() -> impl IntoView {
                     );
                 },
                 Err(e) => {
-                    state.set_error_message.set(Some(e));
+                    state.set_error_message.set(Some(e.display()));
                 },
             }
         });
@@ -72,7 +137,7 @@ pub fn SettingsForm() -> impl IntoView {
         let path = custom_path.get();
         let path_opt = if path.is_empty() { None } else { Some(path) };
         spawn_local(async move {
-            match crate::api::commands::update_settings(None, path_opt, None, None).await {
+            match crate::api::commands::update_settings(None, path_opt, None, None, None).await {
                 Ok(settings) => {
                     state.set_settings.set(settings);
                     match crate::api::commands::get_config_file_path().await {
@@ -86,7 +151,7 @@ pub fn SettingsForm() -> impl IntoView {
                     );
                 },
                 Err(e) => {
-                    state.set_error_message.set(Some(e));
+                    state.set_error_message.set(Some(e.display()));
                 },
             }
         });
@@ -95,12 +160,26 @@ pub fn SettingsForm() -> impl IntoView {
     let save_auto_refresh = move |value: bool| {
         let state = state;
         spawn_local(async move {
-            match crate::api::commands::update_settings(None, None, Some(value), None).await {
+            match crate::api::commands::update_settings(None, None, Some(value), None, None).await {
                 Ok(settings) => {
                     state.set_settings.set(settings);
                 },
                 Err(e) => {
-                    state.set_error_message.set(Some(e));
+                    state.set_error_message.set(Some(e.display()));
+                },
+            }
+        });
+    };
+
+    let save_instant_apply = move |value: bool| {
+        let state = state;
+        spawn_local(async move {
+            match crate::api::commands::update_settings(None, None, None, Some(value), None).await {
+                Ok(settings) => {
+                    state.set_settings.set(settings);
+                },
+                Err(e) => {
+                    state.set_error_message.set(Some(e.display()));
                 },
             }
         });
@@ -115,7 +194,7 @@ pub fn SettingsForm() -> impl IntoView {
                     state.set_aliases.set(aliases);
                 },
                 Err(e) => {
-                    state.set_error_message.set(Some(e));
+                    state.set_error_message.set(Some(e.display()));
                 },
             }
             state.set_loading.set(false);
@@ -165,7 +244,7 @@ pub fn SettingsForm() -> impl IntoView {
                             let val = event_target_value(&e);
                             let state = state;
                             spawn_local(async move {
-                                match crate::api::commands::update_settings(None, None, None, Some(val.clone())).await {
+                                match crate::api::commands::update_settings(None, None, None, None, Some(val.clone())).await {
                                     Ok(settings) => {
                                         if let Ok(loc) = val.parse::<Locale>() {
                                             state.set_locale.set(loc);
@@ -178,7 +257,7 @@ pub fn SettingsForm() -> impl IntoView {
                                         );
                                     },
                                     Err(e) => {
-                                        state.set_error_message.set(Some(e));
+                                        state.set_error_message.set(Some(e.display()));
                                     },
                                 }
                             });
@@ -287,6 +366,27 @@ pub fn SettingsForm() -> impl IntoView {
 
                 <div class="settings-form__row">
                     <div>
+                        <div class="settings-form__label">{move || t("settings.instant_apply")}</div>
+                        <div class="settings-form__description">
+                            {move || t("settings.instant_apply_desc")}
+                        </div>
+                    </div>
+                    <label class="toggle">
+                        <input
+                            type="checkbox"
+                            class="toggle__input"
+                            checked=move || state.settings.get().instant_apply
+                            on:change=move |e| {
+                                let checked = event_target_checked(&e);
+                                save_instant_apply(checked);
+                            }
+                        />
+                        <span class="toggle__slider"></span>
+                    </label>
+                </div>
+
+                <div class="settings-form__row">
+                    <div>
                         <div class="settings-form__label">{move || t("settings.manual_refresh")}</div>
                         <div class="settings-form__description">
                             {move || t("settings.manual_refresh_desc")}
@@ -296,6 +396,72 @@ pub fn SettingsForm() -> impl IntoView {
                         {move || t("settings.refresh_btn")}
                     </button>
                 </div>
+            </div>
+
+            <div class="settings-form__section">
+                <h3 class="settings-form__section-title">{move || t("settings.backups")}</h3>
+                <div class="settings-form__description" style="margin-bottom:12px">
+                    {move || t("settings.backups_desc")}
+                </div>
+                <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+                    <button class="btn btn--secondary btn--sm" on:click=move |_| load_backups()>
+                        {move || t("settings.backup_refresh")}
+                    </button>
+                </div>
+                {move || {
+                    let list = backups.get();
+                    if list.is_empty() {
+                        return view! {
+                            <div style="color:var(--text-secondary);font-size:14px">
+                                {t("settings.backup_empty")}
+                            </div>
+                        }.into_any();
+                    }
+                    view! {
+                        <table style="width:100%;border-collapse:collapse;font-size:14px">
+                            <thead>
+                                <tr>
+                                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border-color)">
+                                        {t("settings.backup_time")}
+                                    </th>
+                                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border-color)">
+                                        {t("settings.backup_path")}
+                                    </th>
+                                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border-color)">
+                                        {t("settings.backup_size")}
+                                    </th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {list.into_iter().map(|b| {
+                                    let id = b.id.clone();
+                                    view! {
+                                        <tr>
+                                            <td style="padding:6px 8px;border-bottom:1px solid var(--border-color);white-space:nowrap">
+                                                {format_backup_time(b.created_at)}
+                                            </td>
+                                            <td style="padding:6px 8px;border-bottom:1px solid var(--border-color);word-break:break-all">
+                                                {b.original_path.clone()}
+                                            </td>
+                                            <td style="padding:6px 8px;border-bottom:1px solid var(--border-color);white-space:nowrap">
+                                                {format_backup_size(b.size)}
+                                            </td>
+                                            <td style="padding:6px 8px;border-bottom:1px solid var(--border-color);text-align:right;white-space:nowrap">
+                                                <button
+                                                    class="btn btn--secondary btn--sm"
+                                                    on:click=move |_| on_restore_backup(id.clone())
+                                                >
+                                                    {t("settings.backup_restore")}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                }).collect::<Vec<_>>()}
+                            </tbody>
+                        </table>
+                    }.into_any()
+                }}
             </div>
 
             <div class="settings-form__section">

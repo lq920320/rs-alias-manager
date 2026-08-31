@@ -20,7 +20,30 @@
     "dialog:allow-message",
     "dialog:allow-ask",
     "dialog:allow-confirm",
+    "opener:default",
     "shell:default",
-    "shell:allow-open"
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "bash",
+          "command": "bash",
+          "args": true,
+          "sidecar": false
+        },
+        {
+          "name": "zsh",
+          "command": "zsh",
+          "args": true,
+          "sidecar": false
+        },
+        {
+          "name": "fish",
+          "command": "fish",
+          "args": true,
+          "sidecar": false
+        }
+      ]
+    }
   ]
 }

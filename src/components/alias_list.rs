@@ -54,7 +54,7 @@ pub fn AliasList(
                             let aliases = state.filtered_aliases();
                             let total = state.aliases.get().len();
                             let filtered = aliases.len();
-                            if state.search_query.get().is_empty() {
+                            if state.search_query.get().is_empty() && state.selected_tag.get().is_empty() {
                                 t("alias.count").replace("{}", &total.to_string())
                             } else {
                                 t("alias.count_filtered")
@@ -83,6 +83,52 @@ pub fn AliasList(
                         }
                     }
                 </div>
+            </div>
+
+            // 标签筛选条
+            <div class="tag-filter-bar">
+                {
+                    move || {
+                        let all = state.aliases.get();
+                        let mut tags: Vec<String> = Vec::new();
+                        for a in &all {
+                            for t in &a.tags {
+                                if !tags.contains(t) {
+                                    tags.push(t.clone());
+                                }
+                            }
+                        }
+                        let selected_tag = state.selected_tag.get();
+                        view! {
+                            <button
+                                class=format!("tag-filter{}", if selected_tag.is_empty() { " tag-filter--active" } else { "" })
+                                on:click=move |_| state.set_selected_tag.set(String::new())
+                            >
+                                {t("tag.filter_all")}
+                            </button>
+                            {tags.into_iter().map(move |tag| {
+                                let tag_active = selected_tag == tag;
+                                view! {
+                                    <button
+                                        class=format!("tag-filter{}", if tag_active { " tag-filter--active" } else { "" })
+                                        on:click={
+                                            let tag = tag.clone();
+                                            move |_| {
+                                                if state.selected_tag.get() == tag {
+                                                    state.set_selected_tag.set(String::new());
+                                                } else {
+                                                    state.set_selected_tag.set(tag.clone());
+                                                }
+                                            }
+                                        }
+                                    >
+                                        {tag.clone()}
+                                    </button>
+                                }
+                            }).collect::<Vec<_>>()}
+                        }
+                    }
+                }
             </div>
 
             {

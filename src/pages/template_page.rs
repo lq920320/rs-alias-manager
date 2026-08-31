@@ -46,9 +46,11 @@ pub fn TemplatePage() -> impl IntoView {
                 state.set_loading.set(true);
                 state.set_error_message.set(None);
                 match crate::api::commands::import_templates(names_clone).await {
-                    Ok(count) => {
+                    Ok(result) => {
                         state.set_success_message.set(Some(
-                            t("template.import_success").replace("{}", &count.to_string())
+                            t("template.import_skipped")
+                                .replace("{}", &result.imported.to_string())
+                                .replace("{}", &result.skipped.to_string())
                         ));
                         set_selected_templates.set(Vec::new());
                         // 延迟清除成功消息
@@ -60,10 +62,73 @@ pub fn TemplatePage() -> impl IntoView {
                         );
                     },
                     Err(e) => {
-                        state.set_error_message.set(Some(e));
+                        state.set_error_message.set(Some(e.display()));
                     },
                 }
                 state.set_loading.set(false);
+            });
+        }
+    };
+
+    // 自定义模板新建表单
+    let (new_name, set_new_name) = signal(String::new());
+    let (new_command, set_new_command) = signal(String::new());
+    let (new_desc, set_new_desc) = signal(String::new());
+
+    // 重新加载模板（按当前分类），供新建/删除后刷新。
+    let reload_templates = move || {
+        let category = active_category.get();
+        let category_str = category.map(|c| c.to_string());
+        let set_templates = set_templates;
+        spawn_local(async move {
+            match crate::api::commands::list_templates(category_str).await {
+                Ok(t) => set_templates.set(t),
+                Err(e) => log::warn!("Failed to reload templates: {}", e),
+            }
+        });
+    };
+
+    let on_save_custom = {
+        let state = state;
+        move || {
+            let state = state;
+            let name = new_name.get();
+            let command = new_command.get();
+            let desc = new_desc.get();
+            if name.trim().is_empty() || command.trim().is_empty() {
+                state.set_error_message.set(Some(t("template.custom_required").to_string()));
+                return;
+            }
+            let template = crate::state::app_state::Template {
+                name: name.trim().to_string(),
+                command: command.trim().to_string(),
+                description: desc.trim().to_string(),
+                category: TemplateCategory::Custom,
+                tags: vec![],
+            };
+            spawn_local(async move {
+                match crate::api::commands::save_template(template).await {
+                    Ok(()) => {
+                        set_new_name.set(String::new());
+                        set_new_command.set(String::new());
+                        set_new_desc.set(String::new());
+                        reload_templates();
+                    },
+                    Err(e) => state.set_error_message.set(Some(e.display())),
+                }
+            });
+        }
+    };
+
+    let on_delete_custom = {
+        let state = state;
+        move |name: String| {
+            let state = state;
+            spawn_local(async move {
+                match crate::api::commands::delete_template(name).await {
+                    Ok(()) => reload_templates(),
+                    Err(e) => state.set_error_message.set(Some(e.display())),
+                }
             });
         }
     };
@@ -118,6 +183,47 @@ pub fn TemplatePage() -> impl IntoView {
                 on_select=Callback::new(move |cat: Option<TemplateCategory>| set_active_category.set(cat))
             />
 
+            // 仅当选中 Custom 分类时展示「新建自定义模板」表单
+            {
+                move || {
+                    if active_category.get() == Some(TemplateCategory::Custom) {
+                        view! {
+                            <div class="custom-template-form">
+                                <div class="custom-template-form__title">{t("template.custom_new")}</div>
+                                <div class="custom-template-form__fields">
+                                    <input
+                                        class="input"
+                                        type="text"
+                                        placeholder=t("template.custom_name")
+                                        prop:value=move || new_name.get()
+                                        on:input=move |e| set_new_name.set(event_target_value(&e))
+                                    />
+                                    <input
+                                        class="input"
+                                        type="text"
+                                        placeholder=t("template.custom_command")
+                                        prop:value=move || new_command.get()
+                                        on:input=move |e| set_new_command.set(event_target_value(&e))
+                                    />
+                                    <input
+                                        class="input"
+                                        type="text"
+                                        placeholder=t("template.custom_desc")
+                                        prop:value=move || new_desc.get()
+                                        on:input=move |e| set_new_desc.set(event_target_value(&e))
+                                    />
+                                    <button class="btn btn--primary" on:click=move |_| on_save_custom()>
+                                        {t("template.custom_save")}
+                                    </button>
+                                </div>
+                            </div>
+                        }.into_any()
+                    } else {
+                        view! { <div></div> }.into_any()
+                    }
+                }
+            }
+
             <TemplateList
                 templates=templates
                 selected=selected_templates
@@ -130,6 +236,7 @@ pub fn TemplatePage() -> impl IntoView {
                     }
                     set_selected_templates.set(current);
                 })
+                on_delete=Callback::new(on_delete_custom)
             />
         </div>
     }

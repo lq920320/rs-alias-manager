@@ -39,8 +39,9 @@
     ]
   },
   "plugins": {
-    "opener": {
-      "open-url": true
-    }
+    "shell": {
+      "open": false
+    },
+    "opener": {}
   }
 }

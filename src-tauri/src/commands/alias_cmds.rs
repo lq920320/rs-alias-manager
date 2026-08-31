@@ -1,10 +1,14 @@
 /// 别名操作的 Tauri 命令处理器。
+///
+/// 所有会修改配置文件的命令都遵循同一流程：
+/// 获取写锁 → 备份当前配置 → 执行变更，确保并发安全与可回滚。
 use tauri::State;
 
 use crate::error::AppError;
 use crate::models::alias::Alias;
 use crate::services::app_settings::AppSettingsManager;
-use crate::services::shell_config::ShellConfigManager;
+use crate::services::config_backup;
+use crate::services::shell_config::{BatchOutcome, ShellConfigManager};
 use crate::state::AppState;
 
 /// 列出当前 Shell 配置文件中的所有别名。
@@ -32,6 +36,17 @@ pub fn add_alias(
 ) -> Result<(), AppError> {
     let settings = state.get_settings();
     let config_path = AppSettingsManager::effective_config_path(&settings);
+
+    let _write_guard = state.config_write_lock();
+
+    // 新增别名前先判重名：命中则返回 AliasConflict，让前端弹「覆盖/取消」，
+    // 而非由下层 add_alias_to_content 抛出 AliasExists（保留给内部场景）。
+    let existing = ShellConfigManager::list_aliases(&config_path)?;
+    if existing.iter().any(|a| a.name == name) {
+        return Err(AppError::AliasConflict(name));
+    }
+
+    config_backup::create_backup(&state.app_data_dir, &config_path)?;
     let alias = Alias { name, command, tags: tags.unwrap_or_default() };
     ShellConfigManager::add_alias(&config_path, &alias)
 }
@@ -53,6 +68,10 @@ pub fn update_alias(
 ) -> Result<(), AppError> {
     let settings = state.get_settings();
     let config_path = AppSettingsManager::effective_config_path(&settings);
+
+    let _write_guard = state.config_write_lock();
+    config_backup::create_backup(&state.app_data_dir, &config_path)?;
+
     let alias = Alias { name, command, tags: tags.unwrap_or_default() };
     ShellConfigManager::update_alias(&config_path, &old_name, &alias)
 }
@@ -65,6 +84,10 @@ pub fn update_alias(
 pub fn delete_alias(state: State<'_, AppState>, name: String) -> Result<(), AppError> {
     let settings = state.get_settings();
     let config_path = AppSettingsManager::effective_config_path(&settings);
+
+    let _write_guard = state.config_write_lock();
+    config_backup::create_backup(&state.app_data_dir, &config_path)?;
+
     ShellConfigManager::delete_alias(&config_path, &name)
 }
 
@@ -83,57 +106,36 @@ pub fn detect_shell(
 
 /// 批量添加别名。
 ///
-/// 一次性添加多个别名，减少文件 I/O 次数。
-/// 返回成功添加的数量和失败的别名名称列表。
+/// 整批只读写配置文件一次。
+/// 返回成功添加的数量、跳过的数量与失败列表。
 #[tauri::command]
 pub fn batch_add_aliases(
     state: State<'_, AppState>,
     aliases: Vec<Alias>,
-) -> Result<BatchResult, AppError> {
+) -> Result<BatchOutcome, AppError> {
     let settings = state.get_settings();
     let config_path = AppSettingsManager::effective_config_path(&settings);
-    let mut success_count = 0usize;
-    let mut errors = Vec::new();
 
-    for alias in &aliases {
-        match ShellConfigManager::add_alias(&config_path, alias) {
-            Ok(()) => success_count += 1,
-            Err(e) => errors.push(format!("{}: {}", alias.name, e)),
-        }
-    }
+    let _write_guard = state.config_write_lock();
+    config_backup::create_backup(&state.app_data_dir, &config_path)?;
 
-    Ok(BatchResult { success_count, errors })
+    ShellConfigManager::add_aliases_batch(&config_path, &aliases)
 }
 
 /// 批量删除别名。
 ///
-/// 一次性删除多个别名，减少文件 I/O 次数。
-/// 返回成功删除的数量和失败的别名名称列表。
+/// 整批只读写配置文件一次。
+/// 返回成功删除的数量与失败列表。
 #[tauri::command]
 pub fn batch_delete_aliases(
     state: State<'_, AppState>,
     names: Vec<String>,
-) -> Result<BatchResult, AppError> {
+) -> Result<BatchOutcome, AppError> {
     let settings = state.get_settings();
     let config_path = AppSettingsManager::effective_config_path(&settings);
-    let mut success_count = 0usize;
-    let mut errors = Vec::new();
 
-    for name in &names {
-        match ShellConfigManager::delete_alias(&config_path, name) {
-            Ok(()) => success_count += 1,
-            Err(e) => errors.push(format!("{}: {}", name, e)),
-        }
-    }
+    let _write_guard = state.config_write_lock();
+    config_backup::create_backup(&state.app_data_dir, &config_path)?;
 
-    Ok(BatchResult { success_count, errors })
-}
-
-/// 批量操作的结果。
-#[derive(serde::Serialize)]
-pub struct BatchResult {
-    /// 成功操作的数量。
-    pub success_count: usize,
-    /// 失败的错误信息列表。
-    pub errors: Vec<String>,
+    ShellConfigManager::delete_aliases_batch(&config_path, &names)
 }

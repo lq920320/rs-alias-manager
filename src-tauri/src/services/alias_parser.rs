@@ -68,8 +68,8 @@ fn parse_tags_comment(line: &str) -> Option<Vec<String>> {
 /// 解析别名行中的命令值部分。
 ///
 /// 处理三种引号风格：
-/// - 单引号：` 'command' ` → 去除引号
-/// - 双引号：` "command" ` → 去除引号
+/// - 单引号：` 'command' ` → 去除引号，支持 `'\''` 转义序列
+/// - 双引号：` "command" ` → 去除引号，支持 `\"` / `\\` 转义
 /// - 无引号：`command` → 原样返回
 fn parse_command_value(value: &str) -> Option<String> {
     let trimmed = value.trim();
@@ -78,46 +78,109 @@ fn parse_command_value(value: &str) -> Option<String> {
         return None;
     }
 
-    // Single-quoted value
     if trimmed.starts_with('\'') {
-        if let Some(end) = trimmed.rfind('\'') {
-            if end > 0 {
-                return Some(trimmed[1..end].to_string());
-            }
-        }
-        return None;
+        return parse_single_quoted(trimmed);
     }
 
-    // Double-quoted value
     if trimmed.starts_with('"') {
-        if let Some(end) = trimmed.rfind('"') {
-            if end > 0 {
-                return Some(trimmed[1..end].to_string());
-            }
-        }
-        return None;
+        return parse_double_quoted(trimmed);
     }
 
     // Unquoted value — take until end of line (no spaces in unquoted commands)
     Some(trimmed.to_string())
 }
 
+/// 解析单引号值，支持 `'\''` 转义序列。
+///
+/// Shell 单引号内无法转义单引号，惯用写法是关闭引号、插入 `\'`
+/// （反斜杠转义的字面单引号）再重开引号，例如 `'it'\''s'` 表示 `it's`。
+/// 闭合引号之后的其余内容（如行尾注释）被忽略。
+fn parse_single_quoted(s: &str) -> Option<String> {
+    let chars: Vec<char> = s.chars().collect();
+    let mut out = String::new();
+    let mut i = 0usize;
+
+    // 第一段必须以单引号开始
+    if chars.get(i) != Some(&'\'') {
+        return None;
+    }
+    i += 1;
+
+    loop {
+        // 读取段内容直到闭合引号
+        let mut closed = false;
+        while let Some(&c) = chars.get(i) {
+            if c == '\'' {
+                closed = true;
+                i += 1;
+                break;
+            }
+            out.push(c);
+            i += 1;
+        }
+        if !closed {
+            return None; // 未闭合
+        }
+
+        // 段结束后若紧跟 '\'' 转义序列：\' 为字面单引号，
+        // 序列末尾的 ' 即下一段的开引号，消耗后直接继续读取段内容
+        if chars.get(i) == Some(&'\\')
+            && chars.get(i + 1) == Some(&'\'')
+            && chars.get(i + 2) == Some(&'\'')
+        {
+            out.push('\'');
+            i += 3;
+            continue;
+        }
+        break;
+    }
+
+    Some(out)
+}
+
+/// 解析双引号值，支持 `\"` 与 `\\` 反斜杠转义。
+///
+/// 闭合引号之后的其余内容（如行尾注释）被忽略。
+fn parse_double_quoted(s: &str) -> Option<String> {
+    let chars: Vec<char> = s.chars().collect();
+    let mut out = String::new();
+    let mut i = 1usize; // 跳过开头的引号
+
+    while let Some(&c) = chars.get(i) {
+        match c {
+            '\\' if matches!(chars.get(i + 1), Some(&'"') | Some(&'\\')) => {
+                out.push(chars[i + 1]);
+                i += 2;
+            }
+            '"' => return Some(out),
+            _ => {
+                out.push(c);
+                i += 1;
+            }
+        }
+    }
+
+    None // 未闭合
+}
+
+/// 将命令值转义为可安全放入单引号内的形式。
+///
+/// 单引号内无法转义，采用 Shell 惯用手法：将 `'` 替换为 `'\''`
+/// （关闭引号、插入字面单引号、重开引号）。
+fn escape_single_quoted(command: &str) -> String {
+    command.replace('\'', "'\\''")
+}
+
 /// 将别名格式化为规范的输出行格式。
 ///
-/// 始终使用单引号：`alias name='command'`
+/// 始终使用单引号：`alias name='command'`（命令中的单引号会被转义）。
 /// 如果存在标签，会在别名行上方输出 `# @tags:tag1,tag2` 注释。
 pub fn format_alias_line(alias: &Alias) -> String {
+    let escaped = escape_single_quoted(&alias.command);
     if alias.tags.is_empty() {
-        format!("alias {}='{}'", alias.name, alias.command)
+        format!("alias {}='{}'", alias.name, escaped)
     } else {
-        format!(
-            "{}{}
-alias {}='{}'",
-            TAGS_PREFIX,
-            alias.tags.join(","),
-            alias.name,
-            alias.command
-        )
+        format!("{}{}\nalias {}='{}'", TAGS_PREFIX, alias.tags.join(","), alias.name, escaped)
     }
 }
 
@@ -732,5 +795,63 @@ mod tests {
     fn test_format_alias_with_special_chars() {
         let alias = Alias::new("build", "cargo build && cargo test");
         assert_eq!(format_alias_line(&alias), "alias build='cargo build && cargo test'");
+    }
+
+    // -- 引号转义测试 --
+
+    #[test]
+    fn test_format_alias_escapes_single_quotes() {
+        let alias = Alias::new("say", "echo 'hello'");
+        assert_eq!(format_alias_line(&alias), r"alias say='echo '\''hello'\'''");
+    }
+
+    #[test]
+    fn test_parse_escaped_single_quotes() {
+        let alias = parse_alias_line(r"alias say='echo '\''hello'\'''").unwrap();
+        assert_eq!(alias.name, "say");
+        assert_eq!(alias.command, "echo 'hello'");
+    }
+
+    #[test]
+    fn test_parse_escaped_single_quote_mid_word() {
+        // it's → 'it'\''s'
+        let alias = parse_alias_line(r"alias msg='it'\''s fine'").unwrap();
+        assert_eq!(alias.command, "it's fine");
+    }
+
+    #[test]
+    fn test_parse_double_quoted_with_escaped_quote() {
+        let alias = parse_alias_line(r#"alias x="echo \"hi\"""#).unwrap();
+        assert_eq!(alias.command, r#"echo "hi""#);
+    }
+
+    #[test]
+    fn test_parse_double_quoted_with_escaped_backslash() {
+        let alias = parse_alias_line(r#"alias x="echo \\""#).unwrap();
+        assert_eq!(alias.command, r"echo \");
+    }
+
+    #[test]
+    fn test_roundtrip_command_with_single_quotes() {
+        let original = Alias::new("say", "echo 'hello world' && echo 'bye'");
+        let line = format_alias_line(&original);
+        let parsed = parse_alias_line(&line).unwrap();
+        assert_eq!(parsed, original);
+    }
+
+    #[test]
+    fn test_roundtrip_content_with_single_quotes() {
+        let alias = Alias::new("say", "git log --format='%h %s'");
+        let content = add_alias_to_content("", &alias).unwrap();
+        let parsed = parse_aliases_from_content(&content);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0], alias);
+    }
+
+    #[test]
+    fn test_parse_escaped_single_quote_only() {
+        // 命令仅为一个单引号字符：''\'''
+        let alias = parse_alias_line(r"alias q=''\'''").unwrap();
+        assert_eq!(alias.command, "'");
     }
 }

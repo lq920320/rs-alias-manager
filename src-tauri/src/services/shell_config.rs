@@ -9,7 +9,7 @@ use crate::models::alias::Alias;
 use crate::models::shell_type::ShellType;
 use crate::services::alias_parser::{
     add_alias_to_content, delete_alias_from_content, parse_aliases_from_content,
-    update_alias_in_content,
+    rebuild_config_content, update_alias_in_content,
 };
 use crate::services::safe_writer::{safe_read, safe_write};
 
@@ -72,6 +72,116 @@ impl ShellConfigManager {
     pub fn detect_shell() -> ShellType {
         ShellType::from_env()
     }
+
+    /// 批量添加别名：整批只读取与写入配置文件各一次。
+    ///
+    /// - 名称非法的条目计入 `errors`；
+    /// - 与现有别名重名的条目计入 `skipped_count`；
+    /// - 其余追加到文件末尾，计入 `success_count`。
+    pub fn add_aliases_batch(
+        config_path: &PathBuf,
+        aliases: &[Alias],
+    ) -> Result<BatchOutcome, AppError> {
+        let mut outcome = BatchOutcome::default();
+        let content = safe_read(config_path)?;
+        let mut current = parse_aliases_from_content(&content);
+
+        let mut changed = false;
+        for alias in aliases {
+            if let Err(reason) = Alias::validate_name(&alias.name) {
+                outcome
+                    .errors
+                    .push(format!("{}: {}", alias.name, AppError::InvalidAliasName(reason)));
+                continue;
+            }
+            if current.iter().any(|a| a.name == alias.name) {
+                outcome.skipped_count += 1;
+                continue;
+            }
+            current.push(alias.clone());
+            outcome.success_count += 1;
+            changed = true;
+        }
+
+        if changed {
+            let new_content = rebuild_config_content(&content, &current);
+            safe_write(config_path, &new_content)?;
+        }
+        Ok(outcome)
+    }
+
+    /// 批量删除别名：整批只读取与写入配置文件各一次。
+    ///
+    /// 不存在的名称计入 `errors`，成功移除的计入 `success_count`。
+    pub fn delete_aliases_batch(
+        config_path: &PathBuf,
+        names: &[String],
+    ) -> Result<BatchOutcome, AppError> {
+        let mut outcome = BatchOutcome::default();
+        let content = safe_read(config_path)?;
+        let current = parse_aliases_from_content(&content);
+        let existing: std::collections::HashSet<String> =
+            current.iter().map(|a| a.name.clone()).collect();
+
+        let mut remaining = current;
+        let mut changed = false;
+        for name in names {
+            if !existing.contains(name.as_str()) {
+                outcome
+                    .errors
+                    .push(format!("{}: {}", name, AppError::AliasNotFound(name.clone())));
+                continue;
+            }
+            remaining.retain(|a| a.name != *name);
+            outcome.success_count += 1;
+            changed = true;
+        }
+
+        if changed {
+            let new_content = rebuild_config_content(&content, &remaining);
+            safe_write(config_path, &new_content)?;
+        }
+        Ok(outcome)
+    }
+
+    /// 对配置文件执行 `source`，使新别名在由本应用启动或后续新开的终端中生效。
+    ///
+    /// 注意：GUI 主进程并非 interactive shell，source 对已在运行的终端窗口不生效，
+    /// 仅对经由本命令启动的子 shell 或之后新开的终端有效。
+    pub fn auto_source(
+        app: &tauri::AppHandle,
+        config_path: &PathBuf,
+        shell_type: &ShellType,
+    ) -> Result<(), AppError> {
+        use tauri_plugin_shell::ShellExt;
+
+        let path = config_path.to_string_lossy().to_string();
+        let (program, args) = match shell_type {
+            ShellType::Bash => ("bash", vec!["-c".to_string(), format!("source '{path}'")]),
+            ShellType::Zsh => ("zsh", vec!["-i".to_string(), "-c".to_string(), format!("source '{path}'")]),
+            // Fish 保留选项但本期不保证语义正确（已知限制）。
+            ShellType::Fish => ("fish", vec!["-c".to_string(), format!("source '{path}'")]),
+        };
+
+        app.shell()
+            .command(program)
+            .args(args)
+            .spawn()
+            .map_err(|e| AppError::NetworkError(format!("执行 source 失败: {e}")))?;
+
+        Ok(())
+    }
+}
+
+/// 批量操作的结果。
+#[derive(Debug, Default, serde::Serialize)]
+pub struct BatchOutcome {
+    /// 成功操作的条目数。
+    pub success_count: usize,
+    /// 因已存在而被跳过的条目数（仅批量添加）。
+    pub skipped_count: usize,
+    /// 失败条目的错误信息列表。
+    pub errors: Vec<String>,
 }
 
 #[cfg(test)]
@@ -268,5 +378,95 @@ mod tests {
 
         let zsh_path = ShellConfigManager::get_config_path(&ShellType::Zsh);
         assert!(zsh_path.to_string_lossy().ends_with(".zshrc"));
+    }
+
+    // === 批量操作测试 ===
+
+    #[test]
+    fn test_batch_add_single_write() {
+        let dir = unique_test_dir("batch_add");
+        let path = dir.join("test_rc_batch");
+        fs::write(&path, "# header\n").unwrap();
+
+        let aliases = vec![
+            Alias::new("gs", "git status"),
+            Alias::new("ll", "ls -la"),
+            Alias::new("gp", "git push"),
+        ];
+        let outcome = ShellConfigManager::add_aliases_batch(&path, &aliases).unwrap();
+        assert_eq!(outcome.success_count, 3);
+        assert_eq!(outcome.skipped_count, 0);
+        assert!(outcome.errors.is_empty());
+
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(content.contains("# header"));
+        assert!(content.contains("alias gs='git status'"));
+        assert!(content.contains("alias ll='ls -la'"));
+        assert!(content.contains("alias gp='git push'"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_batch_add_skips_existing_and_invalid() {
+        let dir = unique_test_dir("batch_add_skip");
+        let path = dir.join("test_rc_batch_skip");
+        fs::write(&path, "alias gs='git status'\n").unwrap();
+
+        let aliases = vec![
+            Alias::new("gs", "git status -s"), // 重名 → 跳过
+            Alias::new("bad name", "echo hi"), // 非法名 → 错误
+            Alias::new("ll", "ls -la"),        // 正常添加
+        ];
+        let outcome = ShellConfigManager::add_aliases_batch(&path, &aliases).unwrap();
+        assert_eq!(outcome.success_count, 1);
+        assert_eq!(outcome.skipped_count, 1);
+        assert_eq!(outcome.errors.len(), 1);
+
+        let content = fs::read_to_string(&path).unwrap();
+        // 原有别名保持不变
+        assert!(content.contains("alias gs='git status'"));
+        assert!(!content.contains("git status -s"));
+        assert!(content.contains("alias ll='ls -la'"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_batch_add_no_change_no_write() {
+        let dir = unique_test_dir("batch_add_noop");
+        let path = dir.join("test_rc_batch_noop");
+        fs::write(&path, "alias gs='git status'\n").unwrap();
+        let before = fs::read_to_string(&path).unwrap();
+
+        let outcome =
+            ShellConfigManager::add_aliases_batch(&path, &[Alias::new("gs", "other")]).unwrap();
+        assert_eq!(outcome.success_count, 0);
+        assert_eq!(outcome.skipped_count, 1);
+        assert_eq!(fs::read_to_string(&path).unwrap(), before);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_batch_delete_single_write() {
+        let dir = unique_test_dir("batch_del");
+        let path = dir.join("test_rc_batch_del");
+        fs::write(&path, "alias gs='git status'\nalias ll='ls -la'\nalias gp='git push'\n")
+            .unwrap();
+
+        let outcome = ShellConfigManager::delete_aliases_batch(
+            &path,
+            &["gs".to_string(), "gp".to_string(), "missing".to_string()],
+        )
+        .unwrap();
+        assert_eq!(outcome.success_count, 2);
+        assert_eq!(outcome.errors.len(), 1);
+
+        let aliases = ShellConfigManager::list_aliases(&path).unwrap();
+        assert_eq!(aliases.len(), 1);
+        assert_eq!(aliases[0].name, "ll");
+
+        let _ = fs::remove_dir_all(&dir);
     }
 }

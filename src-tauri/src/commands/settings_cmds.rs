@@ -18,6 +18,7 @@ pub fn get_settings(state: State<'_, AppState>) -> Result<AppSettings, AppError>
 /// * `shell_type` - 可选的新 Shell 类型（"bash"、"zsh"、"fish"）
 /// * `custom_config_path` - 可选的自定义配置文件路径（空字符串表示清除）
 /// * `auto_refresh` - 可选的自动刷新开关
+/// * `instant_apply` - 可选的即时生效（自动 source）开关
 /// * `locale` - 可选的界面语言（"en" 或 "zh"）
 #[tauri::command]
 pub fn update_settings(
@@ -25,6 +26,7 @@ pub fn update_settings(
     shell_type: Option<String>,
     custom_config_path: Option<String>,
     auto_refresh: Option<bool>,
+    instant_apply: Option<bool>,
     locale: Option<String>,
 ) -> Result<AppSettings, AppError> {
     let mut settings = state.get_settings();
@@ -39,6 +41,10 @@ pub fn update_settings(
 
     if let Some(ar) = auto_refresh {
         settings.auto_refresh = ar;
+    }
+
+    if let Some(ia) = instant_apply {
+        settings.instant_apply = ia;
     }
 
     if let Some(l) = locale {

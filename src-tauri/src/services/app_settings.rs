@@ -20,6 +20,9 @@ pub struct AppSettings {
     /// 配置文件变更时是否自动刷新别名列表。
     #[serde(default = "default_auto_refresh")]
     pub auto_refresh: bool,
+    /// 增删改别名后是否自动 source 配置文件（仅对新开/由本应用启动的终端生效）。
+    #[serde(default)]
+    pub instant_apply: bool,
     /// 界面语言（"en" 或 "zh"）。
     #[serde(default = "default_locale")]
     pub locale: String,
@@ -39,6 +42,7 @@ impl Default for AppSettings {
             shell_type: ShellType::from_env(),
             custom_config_path: None,
             auto_refresh: true,
+            instant_apply: false,
             locale: default_locale(),
         }
     }
@@ -110,6 +114,7 @@ mod tests {
             custom_config_path: Some("/custom/path".to_string()),
             auto_refresh: false,
             locale: "en".to_string(),
+            instant_apply: false,
         };
 
         AppSettingsManager::save(&dir, &settings).unwrap();
@@ -129,6 +134,7 @@ mod tests {
             custom_config_path: Some("/my/custom/bashrc".to_string()),
             auto_refresh: true,
             locale: "en".to_string(),
+            instant_apply: false,
         };
         assert_eq!(
             AppSettingsManager::effective_config_path(&settings),
@@ -143,6 +149,7 @@ mod tests {
             custom_config_path: None,
             auto_refresh: true,
             locale: "en".to_string(),
+            instant_apply: false,
         };
         let path = AppSettingsManager::effective_config_path(&settings);
         assert!(path.to_string_lossy().ends_with(".bashrc"));

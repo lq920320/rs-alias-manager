@@ -2,6 +2,7 @@
 ///
 /// 从编译时嵌入的 JSON 文件加载模板数据，方便维护和扩展。
 use crate::models::template::Template;
+use crate::services::user_template_store;
 
 /// 编译时嵌入的模板 JSON 数据。
 const TEMPLATES_JSON: &str = include_str!("templates.json");
@@ -15,4 +16,9 @@ pub fn get_builtin_templates() -> Vec<Template> {
         log::error!("Failed to parse builtin templates: {}", e);
         Vec::new()
     })
+}
+
+/// 读取用户自定义模板（持久化在应用数据目录）。
+pub fn load_user_templates(app_data_dir: &std::path::PathBuf) -> Vec<Template> {
+    user_template_store::load(app_data_dir)
 }

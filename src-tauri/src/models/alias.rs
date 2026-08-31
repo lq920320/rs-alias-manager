@@ -36,13 +36,13 @@ impl Alias {
     /// - 不能以连字符开头
     pub fn validate_name(name: &str) -> Result<(), String> {
         if name.is_empty() {
-            return Err("别名名称不能为空".to_string());
+            return Err("alias name cannot be empty".to_string());
         }
         if name.starts_with('-') {
-            return Err("别名名称不能以连字符开头".to_string());
+            return Err("alias name cannot start with a hyphen".to_string());
         }
         if !name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
-            return Err("别名名称只能包含字母数字、连字符和下划线".to_string());
+            return Err("alias name can only contain letters, numbers, hyphens and underscores".to_string());
         }
         Ok(())
     }

@@ -8,6 +8,7 @@
 /// - 加载和错误状态
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::rc::Rc;
 
 use crate::i18n::Locale;
 
@@ -154,6 +155,9 @@ pub struct AppSettings {
     /// 是否自动刷新别名列表。
     #[serde(default = "default_auto_refresh")]
     pub auto_refresh: bool,
+    /// 增删改别名后是否自动 source 配置文件。
+    #[serde(default)]
+    pub instant_apply: bool,
     /// 界面语言。
     #[serde(default = "default_locale_str")]
     pub locale: String,
@@ -173,6 +177,7 @@ impl Default for AppSettings {
             shell_type: ShellType::Bash,
             custom_config_path: None,
             auto_refresh: true,
+            instant_apply: false,
             locale: default_locale_str(),
         }
     }
@@ -197,6 +202,10 @@ pub struct AppState {
     pub search_query: ReadSignal<String>,
     /// 搜索查询的设置器。
     pub set_search_query: WriteSignal<String>,
+    /// 当前选中的标签过滤（空表示不过滤）。
+    pub selected_tag: ReadSignal<String>,
+    /// 标签过滤的设置器。
+    pub set_selected_tag: WriteSignal<String>,
     /// 选中的别名名称集合（用于多选操作）。
     pub selected_aliases: ReadSignal<Vec<String>>,
     /// 选中别名的设置器。
@@ -230,6 +239,7 @@ impl AppState {
         let (shell_type, set_shell_type) = signal(ShellType::Bash);
         let (config_path, set_config_path) = signal(String::new());
         let (search_query, set_search_query) = signal(String::new());
+        let (selected_tag, set_selected_tag) = signal(String::new());
         let (selected_aliases, set_selected_aliases) = signal(Vec::new());
         let (loading, set_loading) = signal(false);
         let (error_message, set_error_message) = signal(None::<String>);
@@ -246,6 +256,8 @@ impl AppState {
             set_config_path,
             search_query,
             set_search_query,
+            selected_tag,
+            set_selected_tag,
             selected_aliases,
             set_selected_aliases,
             loading,
@@ -261,19 +273,22 @@ impl AppState {
         }
     }
 
-    /// 根据当前搜索查询返回过滤后的别名列表。
+    /// 根据当前搜索查询与标签过滤返回过滤后的别名列表。
     pub fn filtered_aliases(&self) -> Vec<Alias> {
         let query = self.search_query.get();
+        let tag = self.selected_tag.get();
         let aliases = self.aliases.get();
-
-        if query.is_empty() {
-            return aliases;
-        }
 
         let lower_query = query.to_lowercase();
         aliases
             .into_iter()
             .filter(|a| {
+                if !tag.is_empty() && !a.tags.iter().any(|t| t == &tag) {
+                    return false;
+                }
+                if query.is_empty() {
+                    return true;
+                }
                 a.name.to_lowercase().contains(&lower_query)
                     || a.command.to_lowercase().contains(&lower_query)
                     || a.tags.iter().any(|t| t.to_lowercase().contains(&lower_query))
@@ -308,6 +323,25 @@ impl AppState {
                 },
             }
         });
+
+        // 订阅后端配置变更事件，节流（最多每 400ms 一次）后自动刷新别名列表，
+        // 避免原子重命名产生的连续事件触发风暴。
+        use std::cell::Cell;
+        use std::time::{Duration, Instant};
+        let last_reload: Rc<Cell<Option<Instant>>> = Rc::new(Cell::new(None));
+        let last_clone = last_reload.clone();
+        let state_for_listen = state;
+        crate::api::commands::listen_config_changed(move |_| {
+            let now = Instant::now();
+            let should = match last_clone.get() {
+                Some(t) => now.duration_since(t) >= Duration::from_millis(400),
+                None => true,
+            };
+            if should {
+                last_clone.set(Some(now));
+                state_for_listen.load_aliases();
+            }
+        });
     }
 
     /// 加载别名列表。
@@ -322,7 +356,7 @@ impl AppState {
                     state.set_aliases.set(aliases);
                 },
                 Err(e) => {
-                    state.set_error_message.set(Some(e));
+                    state.set_error_message.set(Some(e.display()));
                 },
             }
             state.set_loading.set(false);

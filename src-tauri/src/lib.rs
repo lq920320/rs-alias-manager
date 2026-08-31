@@ -21,7 +21,11 @@ pub fn run() {
         .setup(|app| {
             // Resolve the app data directory at startup and store it as managed state
             let app_data_dir = app.path().app_data_dir()?;
-            app.manage(AppState::new(app_data_dir));
+            let app_handle = app.app_handle();
+            app.manage(AppState::new(app_data_dir, app_handle.clone()));
+
+            // 启动配置文件变更监听（依据 auto_refresh 开关决定是否广播事件）
+            app.state::<AppState>().start_watcher();
 
             // 构建应用菜单（左上角），在「关于」下方加入「检查更新」项
             let check_updates = MenuItemBuilder::with_id("check_updates", "检查更新...")
@@ -93,13 +97,20 @@ pub fn run() {
             // Template commands
             commands::template_cmds::list_templates,
             commands::template_cmds::import_templates,
+            commands::template_cmds::save_template,
+            commands::template_cmds::delete_template,
+            commands::template_cmds::list_user_templates,
             // Settings commands
             commands::settings_cmds::get_settings,
             commands::settings_cmds::update_settings,
             commands::settings_cmds::get_config_file_path,
+            // Backup commands
+            commands::backup_cmds::list_backups,
+            commands::backup_cmds::restore_backup,
             // Update commands
             commands::update_cmds::check_for_updates,
             commands::update_cmds::get_app_version,
+            commands::update_cmds::auto_source,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -161,10 +172,19 @@ fn handle_check_updates_menu(app: &tauri::AppHandle) {
                 }
             },
             Err(e) => {
+                // 按错误码本地化文案，英文 message 仅作兜底
+                let reason = match (is_zh, e.code()) {
+                    (true, "rate_limited") => "请求过于频繁，请稍后再试".to_string(),
+                    (true, "release_not_found") => "未找到仓库的发布版本，请确认仓库地址是否正确".to_string(),
+                    (true, _) => "网络请求失败，请检查网络连接".to_string(),
+                    (false, "rate_limited") => "Rate limited, please try again later".to_string(),
+                    (false, "release_not_found") => "No releases found for this repository".to_string(),
+                    (false, _) => "Network request failed, please check your connection".to_string(),
+                };
                 let msg = if is_zh {
-                    format!("检查更新失败\n\n{}", e)
+                    format!("检查更新失败\n\n{}", reason)
                 } else {
-                    format!("Failed to check for updates\n\n{}", e)
+                    format!("Failed to check for updates\n\n{}", reason)
                 };
                 app_handle.dialog().message(msg).title(title).show(|_| {});
             },

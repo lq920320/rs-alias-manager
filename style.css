@@ -513,7 +513,7 @@ a:hover { text-decoration: none; }
 .tag {
   display: inline-flex;
   align-items: center;
-  padding: 2px 9px;
+  padding: 2px 12px;
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -552,6 +552,41 @@ a:hover { text-decoration: none; }
 
 .tag:hover {
   opacity: 0.8;
+}
+
+.tag-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.tag-filter {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 14px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.tag-filter:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.tag-filter--active,
+.tag-filter--active:hover {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--text-inverse);
 }
 
 /* ============================================
