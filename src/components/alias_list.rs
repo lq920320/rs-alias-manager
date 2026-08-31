@@ -85,19 +85,21 @@ pub fn AliasList(
                 </div>
             </div>
 
-            // 标签筛选条
+            // 标签筛选条（按名称排序并显示各标签的别名数量）
             <div class="tag-filter-bar">
                 {
                     move || {
                         let all = state.aliases.get();
-                        let mut tags: Vec<String> = Vec::new();
+                        let mut tags: Vec<(String, usize)> = Vec::new();
                         for a in &all {
                             for t in &a.tags {
-                                if !tags.contains(t) {
-                                    tags.push(t.clone());
+                                match tags.iter_mut().find(|(name, _)| name == t) {
+                                    Some((_, count)) => *count += 1,
+                                    None => tags.push((t.clone(), 1)),
                                 }
                             }
                         }
+                        tags.sort_by(|a, b| a.0.cmp(&b.0));
                         let selected_tag = state.selected_tag.get();
                         view! {
                             <button
@@ -106,8 +108,9 @@ pub fn AliasList(
                             >
                                 {t("tag.filter_all")}
                             </button>
-                            {tags.into_iter().map(move |tag| {
+                            {tags.into_iter().map(move |(tag, count)| {
                                 let tag_active = selected_tag == tag;
+                                let dot_class = format!("tag-filter__dot {}", crate::utils::tag_color_class(&tag));
                                 view! {
                                     <button
                                         class=format!("tag-filter{}", if tag_active { " tag-filter--active" } else { "" })
@@ -122,7 +125,9 @@ pub fn AliasList(
                                             }
                                         }
                                     >
+                                        <span class=dot_class></span>
                                         {tag.clone()}
+                                        <span class="tag-filter__count">{count}</span>
                                     </button>
                                 }
                             }).collect::<Vec<_>>()}
@@ -206,17 +211,29 @@ pub fn AliasList(
                                                     } else {
                                                         view! {
                                                             <div class="alias-item__tags">
-                                                                {alias_tags.iter().enumerate().map(|(i, tag)| {
-                                                                    let color_class = match i % 6 {
-                                                                        0 => "tag--blue",
-                                                                        1 => "tag--green",
-                                                                        2 => "tag--purple",
-                                                                        3 => "tag--orange",
-                                                                        4 => "tag--pink",
-                                                                        _ => "tag--cyan",
-                                                                    };
+                                                                {alias_tags.iter().map(|tag| {
+                                                                    let color_class = crate::utils::tag_color_class(tag);
+                                                                    let is_active = state.selected_tag.get() == *tag;
+                                                                    let class = format!(
+                                                                        "tag {}{}",
+                                                                        color_class,
+                                                                        if is_active { " tag--active" } else { "" }
+                                                                    );
+                                                                    let tag_for_click = tag.clone();
                                                                     view! {
-                                                                        <span class=format!("tag {}", color_class)>{ tag.clone() }</span>
+                                                                        <button
+                                                                            class=class
+                                                                            title=move || t("tag.click_to_filter")
+                                                                            on:click=move |_| {
+                                                                                if state.selected_tag.get() == tag_for_click {
+                                                                                    state.set_selected_tag.set(String::new());
+                                                                                } else {
+                                                                                    state.set_selected_tag.set(tag_for_click.clone());
+                                                                                }
+                                                                            }
+                                                                        >
+                                                                            { tag.clone() }
+                                                                        </button>
                                                                     }
                                                                 }).collect::<Vec<_>>()}
                                                             </div>

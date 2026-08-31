@@ -93,6 +93,7 @@ pub fn run() {
             commands::alias_cmds::detect_shell,
             // Batch commands
             commands::alias_cmds::batch_add_aliases,
+            commands::alias_cmds::batch_update_aliases,
             commands::alias_cmds::batch_delete_aliases,
             // Template commands
             commands::template_cmds::list_templates,
@@ -104,6 +105,7 @@ pub fn run() {
             commands::settings_cmds::get_settings,
             commands::settings_cmds::update_settings,
             commands::settings_cmds::get_config_file_path,
+            commands::settings_cmds::get_config_content,
             // Backup commands
             commands::backup_cmds::list_backups,
             commands::backup_cmds::restore_backup,

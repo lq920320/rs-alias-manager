@@ -122,6 +122,24 @@ pub fn batch_add_aliases(
     ShellConfigManager::add_aliases_batch(&config_path, &aliases)
 }
 
+/// 批量更新别名（按名称原地覆盖）。
+///
+/// 整批只读写配置文件一次。
+/// 返回成功更新的数量与失败列表。
+#[tauri::command]
+pub fn batch_update_aliases(
+    state: State<'_, AppState>,
+    aliases: Vec<Alias>,
+) -> Result<BatchOutcome, AppError> {
+    let settings = state.get_settings();
+    let config_path = AppSettingsManager::effective_config_path(&settings);
+
+    let _write_guard = state.config_write_lock();
+    config_backup::create_backup(&state.app_data_dir, &config_path)?;
+
+    ShellConfigManager::update_aliases_batch(&config_path, &aliases)
+}
+
 /// 批量删除别名。
 ///
 /// 整批只读写配置文件一次。

@@ -28,25 +28,12 @@ pub fn AliasForm(
     let (name_error, set_name_error) = signal(None::<String>);
     let (command_error, set_command_error) = signal(None::<String>);
 
-    let validate_name = move |n: &str| -> Result<(), String> {
-        if n.is_empty() {
-            return Err(t("validate.name_empty"));
-        }
-        if n.starts_with('-') {
-            return Err(t("validate.name_hyphen"));
-        }
-        if !n.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
-            return Err(t("validate.name_chars"));
-        }
-        Ok(())
-    };
-
     let handle_submit = move || {
         let n = name.get();
         let c = command.get();
         let tags_input = tags_str.get();
 
-        let name_valid = match validate_name(&n) {
+        let name_valid = match crate::utils::validate_alias_name(&n) {
             Ok(()) => {
                 set_name_error.set(None);
                 true

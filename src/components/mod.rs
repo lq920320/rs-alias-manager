@@ -1,6 +1,7 @@
 /// 应用程序的 UI 组件。
 pub mod alias_form;
 pub mod alias_list;
+pub mod config_viewer;
 pub mod search_bar;
 pub mod settings_form;
 pub mod sidebar;

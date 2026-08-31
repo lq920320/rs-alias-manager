@@ -307,6 +307,28 @@ pub async fn batch_add_aliases(aliases: Vec<Alias>) -> Result<BatchResult, Comma
     invoke::<BatchResult>("batch_add_aliases", args).await
 }
 
+/// 批量更新别名（按名称原地覆盖）。
+pub async fn batch_update_aliases(aliases: Vec<Alias>) -> Result<BatchResult, CommandError> {
+    if !is_tauri() {
+        log::info!("[mock] batch_update_aliases: {} items", aliases.len());
+        return Ok(BatchResult { success_count: aliases.len(), skipped_count: 0, errors: vec![] });
+    }
+    #[derive(serde::Serialize)]
+    struct Args {
+        aliases: Vec<Alias>,
+    }
+    let args = serialize_args(&Args { aliases })?;
+    invoke::<BatchResult>("batch_update_aliases", args).await
+}
+
+/// 读取当前生效配置文件的原始内容（用于只读预览）。
+pub async fn get_config_content() -> Result<String, CommandError> {
+    if !is_tauri() {
+        return Ok("# 示例配置（非 Tauri 环境）\nalias gs='git status'\nexport EDITOR=\"vim\"\n".to_string());
+    }
+    invoke::<String>("get_config_content", JsValue::NULL).await
+}
+
 /// 批量删除别名。
 pub async fn batch_delete_aliases(names: Vec<String>) -> Result<BatchResult, CommandError> {
     if !is_tauri() {

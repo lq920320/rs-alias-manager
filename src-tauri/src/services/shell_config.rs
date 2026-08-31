@@ -144,6 +144,52 @@ impl ShellConfigManager {
         Ok(outcome)
     }
 
+    /// 批量更新别名：整批只读取与写入配置文件各一次。
+    ///
+    /// 按名称原地更新（保持条目在文件中的位置）：
+    /// - 名称非法的条目计入 `errors`；
+    /// - 不存在的名称计入 `errors`；
+    /// - 成功更新的计入 `success_count`。
+    pub fn update_aliases_batch(
+        config_path: &PathBuf,
+        aliases: &[Alias],
+    ) -> Result<BatchOutcome, AppError> {
+        let mut outcome = BatchOutcome::default();
+        let content = safe_read(config_path)?;
+        let mut current = parse_aliases_from_content(&content);
+
+        let mut changed = false;
+        for alias in aliases {
+            if let Err(reason) = Alias::validate_name(&alias.name) {
+                outcome
+                    .errors
+                    .push(format!("{}: {}", alias.name, AppError::InvalidAliasName(reason)));
+                continue;
+            }
+            match current.iter_mut().find(|a| a.name == alias.name) {
+                Some(existing) => {
+                    if existing.command != alias.command || existing.tags != alias.tags {
+                        existing.command = alias.command.clone();
+                        existing.tags = alias.tags.clone();
+                        changed = true;
+                    }
+                    outcome.success_count += 1;
+                },
+                None => {
+                    outcome
+                        .errors
+                        .push(format!("{}: {}", alias.name, AppError::AliasNotFound(alias.name.clone())));
+                },
+            }
+        }
+
+        if changed {
+            let new_content = rebuild_config_content(&content, &current);
+            safe_write(config_path, &new_content)?;
+        }
+        Ok(outcome)
+    }
+
     /// 对配置文件执行 `source`，使新别名在由本应用启动或后续新开的终端中生效。
     ///
     /// 注意：GUI 主进程并非 interactive shell，source 对已在运行的终端窗口不生效，
@@ -466,6 +512,71 @@ mod tests {
         let aliases = ShellConfigManager::list_aliases(&path).unwrap();
         assert_eq!(aliases.len(), 1);
         assert_eq!(aliases[0].name, "ll");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_batch_update_single_write_in_place() {
+        let dir = unique_test_dir("batch_upd");
+        let path = dir.join("test_rc_batch_upd");
+        fs::write(&path, "# header\nalias gs='git status'\nalias ll='ls -la'\n").unwrap();
+
+        let mut gs = Alias::new("gs", "git status --short");
+        gs.tags = vec!["git".to_string()];
+        let ll = Alias::new("ll", "ls -lah");
+        let outcome = ShellConfigManager::update_aliases_batch(&path, &[gs, ll]).unwrap();
+        assert_eq!(outcome.success_count, 2);
+        assert!(outcome.errors.is_empty());
+
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(content.contains("# header"));
+        assert!(content.contains("alias gs='git status --short'"));
+        assert!(content.contains("alias ll='ls -lah'"));
+        // 原地更新：gs 仍在 ll 之前
+        assert!(content.find("alias gs").unwrap() < content.find("alias ll").unwrap());
+
+        let aliases = ShellConfigManager::list_aliases(&path).unwrap();
+        let gs = aliases.iter().find(|a| a.name == "gs").unwrap();
+        assert_eq!(gs.tags, vec!["git".to_string()]);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_batch_update_not_found_and_invalid() {
+        let dir = unique_test_dir("batch_upd_err");
+        let path = dir.join("test_rc_batch_upd_err");
+        fs::write(&path, "alias gs='git status'\n").unwrap();
+
+        let outcome = ShellConfigManager::update_aliases_batch(
+            &path,
+            &[Alias::new("missing", "echo hi"), Alias::new("bad name", "echo hi")],
+        )
+        .unwrap();
+        assert_eq!(outcome.success_count, 0);
+        assert_eq!(outcome.errors.len(), 2);
+
+        // 无成功项，文件内容保持原样
+        let content = fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "alias gs='git status'\n");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_batch_update_no_change_no_write() {
+        let dir = unique_test_dir("batch_upd_noop");
+        let path = dir.join("test_rc_batch_upd_noop");
+        fs::write(&path, "alias gs='git status'\n").unwrap();
+        let before = fs::read_to_string(&path).unwrap();
+
+        let outcome =
+            ShellConfigManager::update_aliases_batch(&path, &[Alias::new("gs", "git status")])
+                .unwrap();
+        assert_eq!(outcome.success_count, 1);
+        assert!(outcome.errors.is_empty());
+        assert_eq!(fs::read_to_string(&path).unwrap(), before);
 
         let _ = fs::remove_dir_all(&dir);
     }

@@ -64,3 +64,37 @@ pub fn set_html_lang(lang: &str) {
         }
     }
 }
+
+/// 按标签名哈希返回稳定的颜色类，保证同名标签在界面各处颜色一致。
+pub fn tag_color_class(tag: &str) -> &'static str {
+    const COLORS: [&str; 6] = [
+        "tag--blue",
+        "tag--green",
+        "tag--purple",
+        "tag--orange",
+        "tag--pink",
+        "tag--cyan",
+    ];
+    let mut hash: u32 = 5381;
+    for b in tag.as_bytes() {
+        hash = hash.wrapping_mul(33) ^ (u32::from(*b));
+    }
+    COLORS[(hash % COLORS.len() as u32) as usize]
+}
+
+/// 校验别名名称，返回本地化错误信息。
+///
+/// 规则与后端 `Alias::validate_name` 保持一致：非空、不以连字符开头、
+/// 仅含字母数字下划线连字符。须在提供 `Locale` 上下文的环境中调用。
+pub fn validate_alias_name(name: &str) -> Result<(), String> {
+    if name.is_empty() {
+        return Err(crate::i18n::t("validate.name_empty"));
+    }
+    if name.starts_with('-') {
+        return Err(crate::i18n::t("validate.name_hyphen"));
+    }
+    if !name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
+        return Err(crate::i18n::t("validate.name_chars"));
+    }
+    Ok(())
+}

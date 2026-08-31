@@ -62,3 +62,16 @@ pub fn get_config_file_path(state: State<'_, AppState>) -> Result<String, AppErr
     let path = AppSettingsManager::effective_config_path(&settings);
     Ok(path.to_string_lossy().to_string())
 }
+
+/// 读取当前生效配置文件的原始内容（用于只读预览）。
+///
+/// 文件不存在时返回 `ConfigNotFound`。
+#[tauri::command]
+pub fn get_config_content(state: State<'_, AppState>) -> Result<String, AppError> {
+    let settings = state.get_settings();
+    let path = AppSettingsManager::effective_config_path(&settings);
+    if !path.exists() {
+        return Err(AppError::ConfigNotFound(path.to_string_lossy().to_string()));
+    }
+    crate::services::safe_writer::safe_read(&path)
+}
