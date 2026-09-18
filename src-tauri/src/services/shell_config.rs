@@ -2,7 +2,7 @@
 ///
 /// 提供 Shell 配置文件（`.bashrc`、`.zshrc`、`config.fish`）中
 /// 别名的 CRUD 操作。所有写入操作通过 `safe_writer` 原子执行。
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::error::AppError;
 use crate::models::alias::Alias;
@@ -20,7 +20,7 @@ impl ShellConfigManager {
     /// 列出给定配置文件路径中的所有别名。
     ///
     /// 如果文件不存在则返回空向量。
-    pub fn list_aliases(config_path: &PathBuf) -> Result<Vec<Alias>, AppError> {
+    pub fn list_aliases(config_path: &Path) -> Result<Vec<Alias>, AppError> {
         let content = safe_read(config_path)?;
         Ok(parse_aliases_from_content(&content))
     }
@@ -29,7 +29,7 @@ impl ShellConfigManager {
     ///
     /// 如果已存在同名别名则返回 `AppError::AliasExists`。
     /// 如果别名名称验证失败则返回 `AppError::InvalidAliasName`。
-    pub fn add_alias(config_path: &PathBuf, alias: &Alias) -> Result<(), AppError> {
+    pub fn add_alias(config_path: &Path, alias: &Alias) -> Result<(), AppError> {
         Alias::validate_name(&alias.name).map_err(AppError::InvalidAliasName)?;
         let content = safe_read(config_path)?;
         let new_content = add_alias_to_content(&content, alias)?;
@@ -41,11 +41,7 @@ impl ShellConfigManager {
     ///
     /// `old_name` 标识要更新的别名。别名对象包含新值。
     /// 如果不存在 `old_name` 指定的别名，则返回 `AppError::AliasNotFound`。
-    pub fn update_alias(
-        config_path: &PathBuf,
-        old_name: &str,
-        alias: &Alias,
-    ) -> Result<(), AppError> {
+    pub fn update_alias(config_path: &Path, old_name: &str, alias: &Alias) -> Result<(), AppError> {
         Alias::validate_name(&alias.name).map_err(AppError::InvalidAliasName)?;
         let content = safe_read(config_path)?;
         let new_content = update_alias_in_content(&content, old_name, alias)?;
@@ -56,7 +52,7 @@ impl ShellConfigManager {
     /// 从配置文件中删除别名。
     ///
     /// 如果不存在指定名称的别名则返回 `AppError::AliasNotFound`。
-    pub fn delete_alias(config_path: &PathBuf, name: &str) -> Result<(), AppError> {
+    pub fn delete_alias(config_path: &Path, name: &str) -> Result<(), AppError> {
         let content = safe_read(config_path)?;
         let new_content = delete_alias_from_content(&content, name)?;
         safe_write(config_path, &new_content)?;
@@ -79,7 +75,7 @@ impl ShellConfigManager {
     /// - 与现有别名重名的条目计入 `skipped_count`；
     /// - 其余追加到文件末尾，计入 `success_count`。
     pub fn add_aliases_batch(
-        config_path: &PathBuf,
+        config_path: &Path,
         aliases: &[Alias],
     ) -> Result<BatchOutcome, AppError> {
         let mut outcome = BatchOutcome::default();
@@ -116,7 +112,7 @@ impl ShellConfigManager {
     ///
     /// 不存在的名称计入 `errors`，成功移除的计入 `success_count`。
     pub fn delete_aliases_batch(
-        config_path: &PathBuf,
+        config_path: &Path,
         names: &[String],
     ) -> Result<BatchOutcome, AppError> {
         let mut outcome = BatchOutcome::default();
@@ -155,7 +151,7 @@ impl ShellConfigManager {
     /// - 不存在的名称计入 `errors`；
     /// - 成功更新的计入 `success_count`。
     pub fn update_aliases_batch(
-        config_path: &PathBuf,
+        config_path: &Path,
         aliases: &[Alias],
     ) -> Result<BatchOutcome, AppError> {
         let mut outcome = BatchOutcome::default();
@@ -204,7 +200,7 @@ impl ShellConfigManager {
     /// 仅对经由本命令启动的子 shell 或之后新开的终端有效。
     pub fn auto_source(
         app: &tauri::AppHandle,
-        config_path: &PathBuf,
+        config_path: &Path,
         shell_type: &ShellType,
     ) -> Result<(), AppError> {
         use tauri_plugin_shell::ShellExt;

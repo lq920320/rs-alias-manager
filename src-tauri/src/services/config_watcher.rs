@@ -2,7 +2,7 @@
 ///
 /// 使用 `notify` 监听 Shell 配置文件（或其父目录）的变化，并在
 /// 应用的 `auto_refresh` 开启时向前端广播 `config-changed` 事件。
-use std::path::PathBuf;
+use std::path::Path;
 
 use notify::{recommended_watcher, RecommendedWatcher, RecursiveMode, Watcher};
 use tauri::{AppHandle, Emitter, Manager};
@@ -15,12 +15,9 @@ pub const CONFIG_CHANGED_EVENT: &str = "config-changed";
 /// 返回的 `RecommendedWatcher` 需由调用方持有（drop 即停止监听）。
 /// 监听始终运行；当变更发生且 `auto_refresh` 为 true 时，才向后端 emit 事件，
 /// 由前端防抖后自动刷新别名列表。
-pub fn start_watching(
-    app: &AppHandle,
-    config_path: &PathBuf,
-) -> notify::Result<RecommendedWatcher> {
+pub fn start_watching(app: &AppHandle, config_path: &Path) -> notify::Result<RecommendedWatcher> {
     let app_handle = app.clone();
-    let target = config_path.clone();
+    let target = config_path.to_path_buf();
 
     let mut watcher = recommended_watcher(move |res: notify::Result<notify::Event>| {
         match res {

@@ -34,9 +34,7 @@ pub fn TemplatePage() -> impl IntoView {
     });
 
     let on_import = {
-        let state = state;
         move || {
-            let state = state;
             let names = selected_templates.get();
             if names.is_empty() {
                 return;
@@ -89,9 +87,7 @@ pub fn TemplatePage() -> impl IntoView {
     };
 
     let on_save_custom = {
-        let state = state;
         move || {
-            let state = state;
             let name = new_name.get();
             let command = new_command.get();
             let desc = new_desc.get();
@@ -123,9 +119,7 @@ pub fn TemplatePage() -> impl IntoView {
     };
 
     let on_delete_custom = {
-        let state = state;
         move |name: String| {
-            let state = state;
             spawn_local(async move {
                 match crate::api::commands::delete_template(name).await {
                     Ok(()) => reload_templates(),

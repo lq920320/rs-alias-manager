@@ -62,9 +62,7 @@ pub fn SettingsForm() -> impl IntoView {
 
     // 恢复指定备份：原生确认框二次确认，成功后刷新备份与别名列表
     let on_restore_backup = {
-        let state = state;
         move |id: String| {
-            let state = state;
             let confirmed = web_sys::window()
                 .and_then(|w| {
                     w.confirm_with_message(&t("settings.backup_restore_confirm"))
@@ -110,7 +108,6 @@ pub fn SettingsForm() -> impl IntoView {
     });
 
     let save_shell_type = move |shell_str: String| {
-        let state = state;
         spawn_local(async move {
             match crate::api::commands::update_settings(Some(shell_str), None, None, None, None)
                 .await
@@ -138,7 +135,6 @@ pub fn SettingsForm() -> impl IntoView {
     };
 
     let save_custom_path = move || {
-        let state = state;
         let path = custom_path.get();
         let path_opt = if path.is_empty() { None } else { Some(path) };
         spawn_local(async move {
@@ -163,7 +159,6 @@ pub fn SettingsForm() -> impl IntoView {
     };
 
     let save_auto_refresh = move |value: bool| {
-        let state = state;
         spawn_local(async move {
             match crate::api::commands::update_settings(None, None, Some(value), None, None).await {
                 Ok(settings) => {
@@ -177,7 +172,6 @@ pub fn SettingsForm() -> impl IntoView {
     };
 
     let save_instant_apply = move |value: bool| {
-        let state = state;
         spawn_local(async move {
             match crate::api::commands::update_settings(None, None, None, Some(value), None).await {
                 Ok(settings) => {
@@ -191,7 +185,6 @@ pub fn SettingsForm() -> impl IntoView {
     };
 
     let reload_aliases = move || {
-        let state = state;
         spawn_local(async move {
             state.set_loading.set(true);
             match crate::api::commands::list_aliases().await {
@@ -247,7 +240,6 @@ pub fn SettingsForm() -> impl IntoView {
                         style="width:160px"
                         on:change=move |e| {
                             let val = event_target_value(&e);
-                            let state = state;
                             spawn_local(async move {
                                 match crate::api::commands::update_settings(None, None, None, None, Some(val.clone())).await {
                                     Ok(settings) => {

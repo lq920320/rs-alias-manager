@@ -19,6 +19,6 @@ pub fn get_builtin_templates() -> Vec<Template> {
 }
 
 /// 读取用户自定义模板（持久化在应用数据目录）。
-pub fn load_user_templates(app_data_dir: &std::path::PathBuf) -> Vec<Template> {
+pub fn load_user_templates(app_data_dir: &std::path::Path) -> Vec<Template> {
     user_template_store::load(app_data_dir)
 }

@@ -97,10 +97,10 @@ pub fn check_for_updates(current_version: &str) -> Result<UpdateInfo, AppError> 
     // ureq 在 HTTP 非 2xx 响应时以 Err 返回，借此区分限流 / 404 等情形，给出更精准提示。
     let response = match call_result {
         Ok(resp) => resp,
-        Err(ureq::Error::Status(status, _)) if status == 403 => {
+        Err(ureq::Error::Status(403, _)) => {
             return Err(AppError::RateLimited);
         },
-        Err(ureq::Error::Status(status, _)) if status == 404 => {
+        Err(ureq::Error::Status(404, _)) => {
             return Err(AppError::ReleaseNotFound);
         },
         Err(e) => {

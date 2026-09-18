@@ -1,11 +1,11 @@
-/// 前端共用工具函数。
+// 前端共用工具函数。
 
 /// 在指定延迟后执行闭包（基于浏览器 setTimeout）。
 pub fn set_timeout(f: impl FnOnce() + 'static, dur: std::time::Duration) {
     use wasm_bindgen::closure::Closure;
     use wasm_bindgen::JsCast;
     if let Some(window) = web_sys::window() {
-        let cb = Closure::once_into_js(move || f());
+        let cb = Closure::once_into_js(f);
         let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
             cb.unchecked_ref(),
             dur.as_millis() as i32,

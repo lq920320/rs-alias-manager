@@ -128,7 +128,7 @@ pub fn restore_backup(app_data_dir: &Path, id: &str) -> Result<BackupEntry, AppE
         return Err(AppError::ConfigNotFound(format!("backup file for {id}")));
     }
     let content = std::fs::read_to_string(&backup_path)?;
-    safe_write(&PathBuf::from(&entry.original_path), &content)?;
+    safe_write(Path::new(&entry.original_path), &content)?;
     Ok(entry)
 }
 

@@ -491,20 +491,8 @@ mod tests {
 
     #[test]
     fn test_parse_alias_empty_single_quotes() {
-        // "alias gs=''" 空单引号值
-        // 注意：rfind('\'') 在 "''" 上找到索引 1（最后一个 '），但 end > 0 检查
-        // 意味着 1 > 0 为 true，所以返回 Some(""[1..1]) = ""
-        // 实际：trimmed = "''", starts_with('\'') = true, rfind('\'') = Some(1),
-        // end > 0 为 true，所以 trimmed[1..1] = "" → Some("")
-        // 但名称是有效的，所以应解析为 command 为空的 Alias
+        // `alias gs=''`：空单引号值合法，解析为空命令
         let alias = parse_alias_line("alias gs=''");
-        // 空字符串命令在 shell 中实际上是有效的（alias gs=''）
-        // 但 parse_command_value 对 '' 返回 Some("")，因为 end=1 > 0
-        // 追踪：trimmed="''"，starts_with('\'')=true，
-        // rfind('\'')=Some(1)，end=1，end>0=true，trimmed[1..1]=""
-        // 所以返回 Some("")
-        // 然后在 parse_alias_line 中，command = Some("") 是 Some
-        // 所以应返回 Some(Alias)
         assert!(alias.is_some());
         assert_eq!(alias.unwrap().command, "");
     }
@@ -521,15 +509,9 @@ mod tests {
 
     #[test]
     fn test_parse_inline_comment_after_alias() {
-        // 这在 shell 中技术上不是注释，但我们的解析器仍应解析它
-        // 因为它以 "alias " 开头
+        // shell 中行尾 # 并非注释，但解析器按"闭合引号后的内容一律忽略"处理
         let alias = parse_alias_line("alias gs='git status' # shortcut").unwrap();
         assert_eq!(alias.name, "gs");
-        // 命令将在闭合引号之后包含尾随的 " # shortcut"
-        // 实际：value_part = "'git status' # shortcut"
-        // trimmed = "'git status' # shortcut"
-        // starts_with('\'') = true
-        // rfind('\'') 找到闭合单引号
         assert_eq!(alias.command, "git status");
     }
 

@@ -2,7 +2,7 @@
 ///
 /// 使用 Tauri 的 `app_data_dir` 将应用程序设置存储为 JSON。
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -53,14 +53,14 @@ pub struct AppSettingsManager;
 
 impl AppSettingsManager {
     /// 返回 Tauri 应用数据目录下的设置文件路径。
-    fn settings_path(app_data_dir: &PathBuf) -> PathBuf {
+    fn settings_path(app_data_dir: &Path) -> PathBuf {
         app_data_dir.join("settings.json")
     }
 
     /// 从应用数据目录加载设置。
     ///
     /// 如果文件不存在或无法解析，则返回默认设置。
-    pub fn load(app_data_dir: &PathBuf) -> AppSettings {
+    pub fn load(app_data_dir: &Path) -> AppSettings {
         let path = Self::settings_path(app_data_dir);
         if !path.exists() {
             return AppSettings::default();
@@ -73,7 +73,7 @@ impl AppSettingsManager {
     }
 
     /// 将设置保存到应用数据目录。
-    pub fn save(app_data_dir: &PathBuf, settings: &AppSettings) -> Result<(), AppError> {
+    pub fn save(app_data_dir: &Path, settings: &AppSettings) -> Result<(), AppError> {
         fs::create_dir_all(app_data_dir)?;
         let path = Self::settings_path(app_data_dir);
         let content = serde_json::to_string_pretty(settings)?;
@@ -100,7 +100,7 @@ mod tests {
     #[test]
     fn test_default_settings() {
         let settings = AppSettings::default();
-        assert_eq!(settings.auto_refresh, true);
+        assert!(settings.auto_refresh);
         assert!(settings.custom_config_path.is_none());
     }
 
@@ -122,7 +122,7 @@ mod tests {
 
         assert_eq!(loaded.shell_type, ShellType::Zsh);
         assert_eq!(loaded.custom_config_path, Some("/custom/path".to_string()));
-        assert_eq!(loaded.auto_refresh, false);
+        assert!(!loaded.auto_refresh);
 
         let _ = fs::remove_dir_all(&dir);
     }

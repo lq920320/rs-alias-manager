@@ -8,17 +8,13 @@ use serde::{Deserialize, Serialize};
 /// Supported locales.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum Locale {
     /// English (default).
+    #[default]
     En,
     /// Chinese (Simplified).
     Zh,
-}
-
-impl Default for Locale {
-    fn default() -> Self {
-        Locale::En
-    }
 }
 
 impl std::fmt::Display for Locale {

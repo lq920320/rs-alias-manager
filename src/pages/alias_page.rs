@@ -19,6 +19,9 @@ use crate::state::app_state::Alias;
 use crate::state::app_state::AppState;
 use crate::utils::trigger_download;
 
+/// 导入回调的共享槽位：回调触发后置 None，令 Closure 自行释放。
+type ImportCbSlot = Rc<RefCell<Option<wasm_bindgen::closure::Closure<dyn Fn(Event)>>>>;
+
 /// 变更成功后，若开启 instant_apply 则对配置文件执行 source（仅对新终端生效）。
 fn trigger_auto_source(state: AppState) {
     let settings = state.settings.get();
@@ -185,17 +188,15 @@ pub fn AliasPage() -> impl IntoView {
     let file_input: NodeRef<leptos::html::Input> = NodeRef::new();
 
     let on_import = {
-        let state = state;
         move || {
             if let Some(input) = file_input.get() {
-                let _ = input.click();
+                input.click();
             }
             let _ = state;
         }
     };
 
     let on_file_change = {
-        let state = state;
         move |ev: Event| {
             let input: HtmlInputElement = ev.target().unwrap().unchecked_into();
             let file = match input.files().and_then(|f| f.get(0)) {
@@ -203,16 +204,14 @@ pub fn AliasPage() -> impl IntoView {
                 None => return,
             };
             // 清空以便再次选择同一文件仍能触发 change
-            let _ = input.set_value("");
-            let state = state;
+            input.set_value("");
             let set_rows = set_import_rows;
             let set_dup = set_import_dup_merged;
             match FileReader::new() {
                 Ok(reader) => {
                     let reader_for_cb = reader.clone();
                     // 回调触发后自行释放，避免每次导入泄漏一个 Closure
-                    let slot: Rc<RefCell<Option<wasm_bindgen::closure::Closure<dyn Fn(Event)>>>> =
-                        Rc::new(RefCell::new(None));
+                    let slot: ImportCbSlot = Rc::new(RefCell::new(None));
                     let onload = wasm_bindgen::closure::Closure::wrap(Box::new({
                         let slot = slot.clone();
                         move |_e: Event| {
@@ -251,9 +250,7 @@ pub fn AliasPage() -> impl IntoView {
     };
 
     let on_conflict_overwrite = {
-        let state = state;
         move |_: ()| {
-            let state = state;
             set_show_conflict.set(false);
             if let Some((_old, name, command, tags)) = pending_overwrite.get() {
                 spawn_local(async move {
@@ -309,7 +306,6 @@ pub fn AliasPage() -> impl IntoView {
 
     // 确认导入：新增条目走批量添加，勾选的冲突条目走批量覆盖，各只写一次配置文件。
     let on_preview_confirm = {
-        let state = state;
         move |_: ()| {
             let rows = match import_rows.get() {
                 Some(r) => r,
@@ -328,7 +324,6 @@ pub fn AliasPage() -> impl IntoView {
             if to_add.is_empty() && to_update.is_empty() {
                 return;
             }
-            let state = state;
             set_import_rows.set(None);
             spawn_local(async move {
                 state.set_loading.set(true);
@@ -391,9 +386,7 @@ pub fn AliasPage() -> impl IntoView {
     };
 
     let on_delete = {
-        let state = state;
         move |name: String| {
-            let state = state;
             spawn_local(async move {
                 state.set_loading.set(true);
                 match crate::api::commands::delete_alias(name).await {
@@ -411,9 +404,7 @@ pub fn AliasPage() -> impl IntoView {
     };
 
     let on_form_submit = {
-        let state = state;
         move |(old_name, name, command, tags): (Option<String>, String, String, Vec<String>)| {
-            let state = state;
             let add_name = name.clone();
             let add_command = command.clone();
             let add_tags = tags.clone();
@@ -467,7 +458,6 @@ pub fn AliasPage() -> impl IntoView {
     };
 
     let on_export = {
-        let state = state;
         move || {
             let aliases = state.aliases.get();
             let json = serde_json::to_string_pretty(&*aliases).unwrap_or_else(|_| "[]".to_string());
@@ -476,9 +466,7 @@ pub fn AliasPage() -> impl IntoView {
     };
 
     let on_delete_selected = {
-        let state = state;
         move |_: ()| {
-            let state = state;
             let selected = state.selected_aliases.get();
             if selected.is_empty() {
                 return;

@@ -224,14 +224,6 @@ pub async fn delete_alias(name: String) -> Result<(), CommandError> {
     invoke::<()>("delete_alias", args).await
 }
 
-/// 检测当前 Shell 类型。
-pub async fn detect_shell() -> Result<AppSettings, CommandError> {
-    if !is_tauri() {
-        return Ok(AppSettings::default());
-    }
-    invoke::<AppSettings>("detect_shell", JsValue::NULL).await
-}
-
 /// 列出可用模板，可选择按分类过滤。
 pub async fn list_templates(
     category: Option<String>,
