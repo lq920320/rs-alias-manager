@@ -28,8 +28,8 @@ pub fn run() {
             app.state::<AppState>().start_watcher();
 
             // 构建应用菜单（左上角），在「关于」下方加入「检查更新」项
-            let check_updates = MenuItemBuilder::with_id("check_updates", "检查更新...")
-                .build(app)?;
+            let check_updates =
+                MenuItemBuilder::with_id("check_updates", "检查更新...").build(app)?;
 
             #[cfg(target_os = "macos")]
             let app_submenu = SubmenuBuilder::new(app, "rs-alias-manager")
@@ -138,14 +138,21 @@ fn handle_check_updates_menu(app: &tauri::AppHandle) {
     std::thread::spawn(move || {
         // 从 tauri.conf.json 读取当前版本（打包时的权威版本）
         let current = app_handle.package_info().version.to_string();
-        let title = if is_zh { "检查更新" } else { "Check for Updates" };
+        let title = if is_zh {
+            "检查更新"
+        } else {
+            "Check for Updates"
+        };
 
         match crate::services::update_checker::check_for_updates(&current) {
             Ok(info) => {
                 if info.has_update {
                     let url = info.release_url.clone();
                     let msg = if is_zh {
-                        format!("发现新版本！\n\n最新版本: v{}\n\n是否前往下载？", info.latest_version)
+                        format!(
+                            "发现新版本！\n\n最新版本: v{}\n\n是否前往下载？",
+                            info.latest_version
+                        )
                     } else {
                         format!(
                             "A new version is available!\n\nLatest version: v{}\n\nDownload now?",
@@ -168,7 +175,10 @@ fn handle_check_updates_menu(app: &tauri::AppHandle) {
                     let msg = if is_zh {
                         format!("当前已是最新版本\n\n最新版本: v{}", info.latest_version)
                     } else {
-                        format!("You're up to date\n\nLatest version: v{}", info.latest_version)
+                        format!(
+                            "You're up to date\n\nLatest version: v{}",
+                            info.latest_version
+                        )
                     };
                     app_handle.dialog().message(msg).title(title).show(|_| {});
                 }
@@ -177,11 +187,17 @@ fn handle_check_updates_menu(app: &tauri::AppHandle) {
                 // 按错误码本地化文案，英文 message 仅作兜底
                 let reason = match (is_zh, e.code()) {
                     (true, "rate_limited") => "请求过于频繁，请稍后再试".to_string(),
-                    (true, "release_not_found") => "未找到仓库的发布版本，请确认仓库地址是否正确".to_string(),
+                    (true, "release_not_found") => {
+                        "未找到仓库的发布版本，请确认仓库地址是否正确".to_string()
+                    },
                     (true, _) => "网络请求失败，请检查网络连接".to_string(),
                     (false, "rate_limited") => "Rate limited, please try again later".to_string(),
-                    (false, "release_not_found") => "No releases found for this repository".to_string(),
-                    (false, _) => "Network request failed, please check your connection".to_string(),
+                    (false, "release_not_found") => {
+                        "No releases found for this repository".to_string()
+                    },
+                    (false, _) => {
+                        "Network request failed, please check your connection".to_string()
+                    },
                 };
                 let msg = if is_zh {
                     format!("检查更新失败\n\n{}", reason)

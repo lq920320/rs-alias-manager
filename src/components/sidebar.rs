@@ -28,7 +28,9 @@ fn set_theme_on_html(dark: bool) {
 fn save_theme_preference(dark: bool) {
     if let Some(window) = web_sys::window() {
         if let Ok(Some(storage)) = window.local_storage() {
-            storage.set("theme", if dark { "dark" } else { "light" }).ok();
+            storage
+                .set("theme", if dark { "dark" } else { "light" })
+                .ok();
         }
     }
 }
@@ -36,14 +38,23 @@ fn save_theme_preference(dark: bool) {
 fn load_saved_theme() -> Option<bool> {
     let window = web_sys::window()?;
     // 首先检查 localStorage
-    let stored = window.local_storage().ok().flatten().and_then(|s| s.get("theme").ok()).flatten();
+    let stored = window
+        .local_storage()
+        .ok()
+        .flatten()
+        .and_then(|s| s.get("theme").ok())
+        .flatten();
     match stored.as_deref() {
         Some("dark") => return Some(true),
         Some("light") => return Some(false),
         _ => {},
     }
     // 回退到系统偏好
-    window.match_media("(prefers-color-scheme: dark)").ok().flatten().map(|m| m.matches())
+    window
+        .match_media("(prefers-color-scheme: dark)")
+        .ok()
+        .flatten()
+        .map(|m| m.matches())
 }
 
 /// 侧边栏导航组件。

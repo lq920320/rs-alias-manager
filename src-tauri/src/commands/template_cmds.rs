@@ -14,10 +14,15 @@ use crate::state::AppState;
 /// # 参数
 /// * `category` - 可选的分类过滤条件（字符串形式："git"、"docker"、"fileops"、"network"、"custom"）
 #[tauri::command]
-pub fn list_templates(state: State<'_, AppState>, category: Option<String>) -> Result<Vec<Template>, AppError> {
+pub fn list_templates(
+    state: State<'_, AppState>,
+    category: Option<String>,
+) -> Result<Vec<Template>, AppError> {
     let mut templates = template_library::get_builtin_templates();
     // 合并用户自定义模板（持久化在应用数据目录）。
-    templates.extend(crate::services::user_template_store::load(&state.app_data_dir));
+    templates.extend(crate::services::user_template_store::load(
+        &state.app_data_dir,
+    ));
 
     let filtered = match category {
         Some(cat) => {
@@ -29,7 +34,10 @@ pub fn list_templates(state: State<'_, AppState>, category: Option<String>) -> R
                 "custom" => TemplateCategory::Custom,
                 _ => return Ok(templates),
             };
-            templates.into_iter().filter(|t| t.category == target).collect()
+            templates
+                .into_iter()
+                .filter(|t| t.category == target)
+                .collect()
         },
         None => templates,
     };
@@ -42,7 +50,10 @@ pub fn list_templates(state: State<'_, AppState>, category: Option<String>) -> R
 /// # 参数
 /// * `names` - 要导入的模板名称列表（可包含内置与用户自定义模板）
 #[tauri::command]
-pub fn import_templates(state: State<'_, AppState>, names: Vec<String>) -> Result<ImportResult, AppError> {
+pub fn import_templates(
+    state: State<'_, AppState>,
+    names: Vec<String>,
+) -> Result<ImportResult, AppError> {
     let settings = state.get_settings();
     let config_path = AppSettingsManager::effective_config_path(&settings);
 
@@ -69,7 +80,10 @@ pub fn import_templates(state: State<'_, AppState>, names: Vec<String>) -> Resul
         log::warn!("模板导入条目失败: {err}");
     }
 
-    Ok(ImportResult { imported: outcome.success_count, skipped: outcome.skipped_count })
+    Ok(ImportResult {
+        imported: outcome.success_count,
+        skipped: outcome.skipped_count,
+    })
 }
 
 /// 导入模板的结果。
@@ -102,5 +116,7 @@ pub fn delete_template(state: State<'_, AppState>, name: String) -> Result<(), A
 /// 列出所有用户自定义模板。
 #[tauri::command]
 pub fn list_user_templates(state: State<'_, AppState>) -> Result<Vec<Template>, AppError> {
-    Ok(crate::services::user_template_store::load(&state.app_data_dir))
+    Ok(crate::services::user_template_store::load(
+        &state.app_data_dir,
+    ))
 }

@@ -99,13 +99,13 @@ pub fn check_for_updates(current_version: &str) -> Result<UpdateInfo, AppError> 
         Ok(resp) => resp,
         Err(ureq::Error::Status(status, _)) if status == 403 => {
             return Err(AppError::RateLimited);
-        }
+        },
         Err(ureq::Error::Status(status, _)) if status == 404 => {
             return Err(AppError::ReleaseNotFound);
-        }
+        },
         Err(e) => {
             return Err(AppError::NetworkError(format!("GitHub API 请求失败: {e}")));
-        }
+        },
     };
 
     let response: GitHubRelease = response
@@ -265,9 +265,15 @@ mod tests {
         }"###;
         let release: GitHubRelease = serde_json::from_str(json).unwrap();
         assert_eq!(release.tag_name, "v0.5.0");
-        assert_eq!(release.html_url, "https://github.com/owner/repo/releases/tag/v0.5.0");
+        assert_eq!(
+            release.html_url,
+            "https://github.com/owner/repo/releases/tag/v0.5.0"
+        );
         assert!(release.body.as_ref().unwrap().contains("Feature A"));
-        assert_eq!(release.published_at.as_ref().unwrap(), "2025-05-27T10:00:00Z");
+        assert_eq!(
+            release.published_at.as_ref().unwrap(),
+            "2025-05-27T10:00:00Z"
+        );
     }
 
     #[test]

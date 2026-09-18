@@ -132,8 +132,14 @@ mod tests {
     #[test]
     fn test_error_codes_are_stable() {
         assert_eq!(AppError::AliasExists("x".into()).code(), "alias_exists");
-        assert_eq!(AppError::AliasNotFound("x".into()).code(), "alias_not_found");
-        assert_eq!(AppError::InvalidAliasName("x".into()).code(), "invalid_alias_name");
+        assert_eq!(
+            AppError::AliasNotFound("x".into()).code(),
+            "alias_not_found"
+        );
+        assert_eq!(
+            AppError::InvalidAliasName("x".into()).code(),
+            "invalid_alias_name"
+        );
         assert_eq!(AppError::RateLimited.code(), "rate_limited");
         assert_eq!(AppError::ReleaseNotFound.code(), "release_not_found");
     }

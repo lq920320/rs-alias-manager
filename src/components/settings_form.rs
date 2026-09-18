@@ -66,7 +66,10 @@ pub fn SettingsForm() -> impl IntoView {
         move |id: String| {
             let state = state;
             let confirmed = web_sys::window()
-                .and_then(|w| w.confirm_with_message(&t("settings.backup_restore_confirm")).ok())
+                .and_then(|w| {
+                    w.confirm_with_message(&t("settings.backup_restore_confirm"))
+                        .ok()
+                })
                 .unwrap_or(false);
             if !confirmed {
                 return;
@@ -109,7 +112,9 @@ pub fn SettingsForm() -> impl IntoView {
     let save_shell_type = move |shell_str: String| {
         let state = state;
         spawn_local(async move {
-            match crate::api::commands::update_settings(Some(shell_str), None, None, None, None).await {
+            match crate::api::commands::update_settings(Some(shell_str), None, None, None, None)
+                .await
+            {
                 Ok(settings) => {
                     let shell_type = settings.shell_type;
                     state.set_settings.set(settings);

@@ -37,7 +37,10 @@ impl ShellType {
             .ok()
             .and_then(|shell| {
                 let shell_path = PathBuf::from(&shell);
-                let name = shell_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                let name = shell_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("");
                 match name {
                     "zsh" => Some(ShellType::Zsh),
                     "fish" => Some(ShellType::Fish),

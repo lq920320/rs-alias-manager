@@ -32,7 +32,9 @@ pub fn update_settings(
     let mut settings = state.get_settings();
 
     if let Some(st) = shell_type {
-        settings.shell_type = st.parse::<ShellType>().map_err(|e| AppError::ParseError(e))?;
+        settings.shell_type = st
+            .parse::<ShellType>()
+            .map_err(|e| AppError::ParseError(e))?;
     }
 
     if let Some(cp) = custom_config_path {

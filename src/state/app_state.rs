@@ -291,7 +291,9 @@ impl AppState {
                 }
                 a.name.to_lowercase().contains(&lower_query)
                     || a.command.to_lowercase().contains(&lower_query)
-                    || a.tags.iter().any(|t| t.to_lowercase().contains(&lower_query))
+                    || a.tags
+                        .iter()
+                        .any(|t| t.to_lowercase().contains(&lower_query))
             })
             .collect()
     }

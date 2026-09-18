@@ -15,7 +15,10 @@ pub const CONFIG_CHANGED_EVENT: &str = "config-changed";
 /// 返回的 `RecommendedWatcher` 需由调用方持有（drop 即停止监听）。
 /// 监听始终运行；当变更发生且 `auto_refresh` 为 true 时，才向后端 emit 事件，
 /// 由前端防抖后自动刷新别名列表。
-pub fn start_watching(app: &AppHandle, config_path: &PathBuf) -> notify::Result<RecommendedWatcher> {
+pub fn start_watching(
+    app: &AppHandle,
+    config_path: &PathBuf,
+) -> notify::Result<RecommendedWatcher> {
     let app_handle = app.clone();
     let target = config_path.clone();
 
@@ -50,15 +53,17 @@ pub fn start_watching(app: &AppHandle, config_path: &PathBuf) -> notify::Result<
                 if refresh {
                     let _ = app_handle.emit(CONFIG_CHANGED_EVENT, ());
                 }
-            }
+            },
             Err(e) => {
                 log::warn!("配置文件监听出错: {e}");
-            }
+            },
         }
     })?;
 
     // 监听父目录（直接监听单文件在部分平台不可靠）。
-    let watch_dir = config_path.parent().unwrap_or_else(|| std::path::Path::new("."));
+    let watch_dir = config_path
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."));
     watcher.watch(watch_dir, RecursiveMode::NonRecursive)?;
 
     Ok(watcher)

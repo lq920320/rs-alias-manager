@@ -27,7 +27,9 @@ pub fn safe_write(path: &Path, content: &str) -> Result<(), AppError> {
     // Create a temporary file in the same directory
     let temp_name = format!(
         ".{}.tmp.{}",
-        path.file_name().and_then(|n| n.to_str()).unwrap_or("unknown"),
+        path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown"),
         std::process::id()
     );
     let temp_path = parent.join(&temp_name);

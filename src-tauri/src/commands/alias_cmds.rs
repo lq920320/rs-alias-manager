@@ -47,7 +47,11 @@ pub fn add_alias(
     }
 
     config_backup::create_backup(&state.app_data_dir, &config_path)?;
-    let alias = Alias { name, command, tags: tags.unwrap_or_default() };
+    let alias = Alias {
+        name,
+        command,
+        tags: tags.unwrap_or_default(),
+    };
     ShellConfigManager::add_alias(&config_path, &alias)
 }
 
@@ -72,7 +76,11 @@ pub fn update_alias(
     let _write_guard = state.config_write_lock();
     config_backup::create_backup(&state.app_data_dir, &config_path)?;
 
-    let alias = Alias { name, command, tags: tags.unwrap_or_default() };
+    let alias = Alias {
+        name,
+        command,
+        tags: tags.unwrap_or_default(),
+    };
     ShellConfigManager::update_alias(&config_path, &old_name, &alias)
 }
 

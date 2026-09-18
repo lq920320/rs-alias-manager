@@ -53,14 +53,21 @@ pub fn AliasForm(
         };
 
         if name_valid && command_valid {
-            let tags: Vec<String> =
-                tags_input.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+            let tags: Vec<String> = tags_input
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
             let old_name = alias.as_ref().map(|a| a.0.clone());
             on_submit.run((old_name, n, c, tags));
         }
     };
 
-    let title = if is_edit { t("form.edit_title") } else { t("form.add_title") };
+    let title = if is_edit {
+        t("form.edit_title")
+    } else {
+        t("form.add_title")
+    };
 
     view! {
         <div class="modal-overlay" on:click=move |_| on_cancel.run(())>

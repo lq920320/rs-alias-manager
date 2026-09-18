@@ -18,7 +18,11 @@ pub struct Alias {
 impl Alias {
     /// 使用指定名称和命令创建新的 `Alias`。
     pub fn new(name: impl Into<String>, command: impl Into<String>) -> Self {
-        Self { name: name.into(), command: command.into(), tags: Vec::new() }
+        Self {
+            name: name.into(),
+            command: command.into(),
+            tags: Vec::new(),
+        }
     }
 
     /// 创建带有标签的 `Alias`。
@@ -27,7 +31,11 @@ impl Alias {
         command: impl Into<String>,
         tags: Vec<String>,
     ) -> Self {
-        Self { name: name.into(), command: command.into(), tags }
+        Self {
+            name: name.into(),
+            command: command.into(),
+            tags,
+        }
     }
 
     /// 验证别名名称。合法的名称必须：
@@ -41,8 +49,13 @@ impl Alias {
         if name.starts_with('-') {
             return Err("alias name cannot start with a hyphen".to_string());
         }
-        if !name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
-            return Err("alias name can only contain letters, numbers, hyphens and underscores".to_string());
+        if !name
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+        {
+            return Err(
+                "alias name can only contain letters, numbers, hyphens and underscores".to_string(),
+            );
         }
         Ok(())
     }

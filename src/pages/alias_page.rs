@@ -15,8 +15,8 @@ use crate::components::alias_list::AliasList;
 use crate::components::config_viewer::ConfigViewer;
 use crate::components::search_bar::SearchBar;
 use crate::i18n::t;
-use crate::state::app_state::AppState;
 use crate::state::app_state::Alias;
+use crate::state::app_state::AppState;
 use crate::utils::trigger_download;
 
 /// 变更成功后，若开启 instant_apply 则对配置文件执行 source（仅对新终端生效）。
@@ -72,7 +72,10 @@ fn name_invalid_reason(name: &str) -> Option<&'static str> {
         Some("validate.name_empty")
     } else if name.starts_with('-') {
         Some("validate.name_hyphen")
-    } else if !name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
+    } else if !name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+    {
         Some("validate.name_chars")
     } else {
         None
@@ -105,7 +108,12 @@ fn build_import_preview(parsed: Vec<Alias>, existing: &[Alias]) -> (Vec<ImportRo
         .into_iter()
         .map(|a| {
             if let Some(key) = name_invalid_reason(&a.name) {
-                ImportRow { alias: a, status: ImportStatus::Invalid, reason_key: Some(key), overwrite: false }
+                ImportRow {
+                    alias: a,
+                    status: ImportStatus::Invalid,
+                    reason_key: Some(key),
+                    overwrite: false,
+                }
             } else if a.command.trim().is_empty() {
                 ImportRow {
                     alias: a,
@@ -115,12 +123,23 @@ fn build_import_preview(parsed: Vec<Alias>, existing: &[Alias]) -> (Vec<ImportRo
                 }
             } else {
                 match existing.iter().find(|e| e.name == a.name) {
-                    None => ImportRow { alias: a, status: ImportStatus::New, reason_key: None, overwrite: false },
-                    Some(cur) if cur.command == a.command && cur.tags == a.tags => {
-                        ImportRow { alias: a, status: ImportStatus::Unchanged, reason_key: None, overwrite: false }
+                    None => ImportRow {
+                        alias: a,
+                        status: ImportStatus::New,
+                        reason_key: None,
+                        overwrite: false,
                     },
-                    Some(_) => {
-                        ImportRow { alias: a, status: ImportStatus::Conflict, reason_key: None, overwrite: false }
+                    Some(cur) if cur.command == a.command && cur.tags == a.tags => ImportRow {
+                        alias: a,
+                        status: ImportStatus::Unchanged,
+                        reason_key: None,
+                        overwrite: false,
+                    },
+                    Some(_) => ImportRow {
+                        alias: a,
+                        status: ImportStatus::Conflict,
+                        reason_key: None,
+                        overwrite: false,
                     },
                 }
             }
@@ -203,25 +222,30 @@ pub fn AliasPage() -> impl IntoView {
                                     let existing = state.aliases.get().to_vec();
                                     match serde_json::from_str::<Vec<Alias>>(&s) {
                                         Ok(parsed) => {
-                                            let (rows, dup) = build_import_preview(parsed, &existing);
+                                            let (rows, dup) =
+                                                build_import_preview(parsed, &existing);
                                             set_dup.set(dup);
                                             set_rows.set(Some(rows));
                                         },
                                         Err(e) => {
                                             state.set_error_message.set(Some(
-                                                t("alias.json_parse_error").replace("{}", &e.to_string())
+                                                t("alias.json_parse_error")
+                                                    .replace("{}", &e.to_string()),
                                             ));
                                         },
                                     }
                                 }
                             }
                         }
-                    }) as Box<dyn Fn(Event)>);
+                    })
+                        as Box<dyn Fn(Event)>);
                     reader.set_onload(Some(onload.as_ref().unchecked_ref()));
                     *slot.borrow_mut() = Some(onload);
                     let _ = reader.read_as_text(&file);
                 },
-                Err(_) => state.set_error_message.set(Some("Failed to read file".to_string())),
+                Err(_) => state
+                    .set_error_message
+                    .set(Some("Failed to read file".to_string())),
             }
         }
     };
@@ -233,7 +257,9 @@ pub fn AliasPage() -> impl IntoView {
             set_show_conflict.set(false);
             if let Some((_old, name, command, tags)) = pending_overwrite.get() {
                 spawn_local(async move {
-                    match crate::api::commands::update_alias(name.clone(), name, command, tags).await {
+                    match crate::api::commands::update_alias(name.clone(), name, command, tags)
+                        .await
+                    {
                         Ok(()) => {
                             set_show_form.set(false);
                             set_editing_alias.set(None);
@@ -316,7 +342,10 @@ pub fn AliasPage() -> impl IntoView {
                             errors.extend(r.errors);
                             if r.skipped_count > 0 {
                                 // 预览后配置被外部修改导致重名，按跳过处理
-                                log::info!("import: {} entries skipped (already exist)", r.skipped_count);
+                                log::info!(
+                                    "import: {} entries skipped (already exist)",
+                                    r.skipped_count
+                                );
                             }
                         },
                         Err(e) => {
@@ -392,7 +421,15 @@ pub fn AliasPage() -> impl IntoView {
                 state.set_loading.set(true);
                 state.set_error_message.set(None);
                 let result = match old_name {
-                    Some(old) => crate::api::commands::update_alias(old, name.clone(), command.clone(), tags.clone()).await,
+                    Some(old) => {
+                        crate::api::commands::update_alias(
+                            old,
+                            name.clone(),
+                            command.clone(),
+                            tags.clone(),
+                        )
+                        .await
+                    },
                     None => crate::api::commands::add_alias(add_name, add_command, add_tags).await,
                 };
                 match result {
@@ -453,11 +490,11 @@ pub fn AliasPage() -> impl IntoView {
                     Ok(result) => {
                         if !result.errors.is_empty() {
                             state.set_error_message.set(Some(
-                                t("alias.delete_partial").replace("{}", &result.errors.join(", "))
+                                t("alias.delete_partial").replace("{}", &result.errors.join(", ")),
                             ));
                         } else {
                             state.set_success_message.set(Some(
-                                t("alias.delete_success").replace("{}", &deleted_count.to_string())
+                                t("alias.delete_success").replace("{}", &deleted_count.to_string()),
                             ));
                         }
                     },
@@ -769,11 +806,14 @@ mod tests {
 
     #[test]
     fn test_preview_classifies_new_unchanged_conflict() {
-        let existing = vec![alias("gs", "git status", &[]), alias("ll", "ls -la", &["file"])];
+        let existing = vec![
+            alias("gs", "git status", &[]),
+            alias("ll", "ls -la", &["file"]),
+        ];
         let parsed = vec![
-            alias("gp", "git push", &[]),                          // 新增
-            alias("gs", "git status", &[]),                        // 完全一致
-            alias("ll", "ls -lah", &["file"]),                     // 命令不同 → 冲突
+            alias("gp", "git push", &[]),      // 新增
+            alias("gs", "git status", &[]),    // 完全一致
+            alias("ll", "ls -lah", &["file"]), // 命令不同 → 冲突
         ];
         let (rows, dup) = build_import_preview(parsed, &existing);
         assert_eq!(dup, 0);

@@ -50,7 +50,7 @@ pub fn TemplatePage() -> impl IntoView {
                         state.set_success_message.set(Some(
                             t("template.import_skipped")
                                 .replace("{}", &result.imported.to_string())
-                                .replace("{}", &result.skipped.to_string())
+                                .replace("{}", &result.skipped.to_string()),
                         ));
                         set_selected_templates.set(Vec::new());
                         // 延迟清除成功消息
@@ -96,7 +96,9 @@ pub fn TemplatePage() -> impl IntoView {
             let command = new_command.get();
             let desc = new_desc.get();
             if name.trim().is_empty() || command.trim().is_empty() {
-                state.set_error_message.set(Some(t("template.custom_required").to_string()));
+                state
+                    .set_error_message
+                    .set(Some(t("template.custom_required").to_string()));
                 return;
             }
             let template = crate::state::app_state::Template {
@@ -162,7 +164,7 @@ pub fn TemplatePage() -> impl IntoView {
                     }
                 }
             }
-            
+
             {
                 move || {
                     let err = state.error_message.get();

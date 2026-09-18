@@ -151,12 +151,12 @@ fn parse_double_quoted(s: &str) -> Option<String> {
             '\\' if matches!(chars.get(i + 1), Some(&'"') | Some(&'\\')) => {
                 out.push(chars[i + 1]);
                 i += 2;
-            }
+            },
             '"' => return Some(out),
             _ => {
                 out.push(c);
                 i += 1;
-            }
+            },
         }
     }
 
@@ -180,7 +180,13 @@ pub fn format_alias_line(alias: &Alias) -> String {
     if alias.tags.is_empty() {
         format!("alias {}='{}'", alias.name, escaped)
     } else {
-        format!("{}{}\nalias {}='{}'", TAGS_PREFIX, alias.tags.join(","), alias.name, escaped)
+        format!(
+            "{}{}\nalias {}='{}'",
+            TAGS_PREFIX,
+            alias.tags.join(","),
+            alias.name,
+            escaped
+        )
     }
 }
 
@@ -317,8 +323,10 @@ pub fn update_alias_in_content(
         return Err(AppError::AliasNotFound(old_name.to_string()));
     }
 
-    let new_aliases: Vec<Alias> =
-        existing.into_iter().map(|a| if a.name == old_name { alias.clone() } else { a }).collect();
+    let new_aliases: Vec<Alias> = existing
+        .into_iter()
+        .map(|a| if a.name == old_name { alias.clone() } else { a })
+        .collect();
 
     // 如果名称更改了，检查与其他现有别名的冲突（排除正在更新的别名），避免名称重复
     if old_name != alias.name && new_aliases.iter().filter(|a| a.name == alias.name).count() > 1 {
@@ -631,7 +639,10 @@ mod tests {
     fn test_rebuild_preserves_line_order() {
         let content =
             "# Header\nalias gs='git status'\nexport FOO=bar\nalias ll='ls -la'\n# Footer\n";
-        let aliases = vec![Alias::new("gs", "git status --short"), Alias::new("ll", "ls -la")];
+        let aliases = vec![
+            Alias::new("gs", "git status --short"),
+            Alias::new("ll", "ls -la"),
+        ];
         let result = rebuild_config_content(content, &aliases);
 
         let header_pos = result.find("# Header").unwrap();
@@ -794,7 +805,10 @@ mod tests {
     #[test]
     fn test_format_alias_with_special_chars() {
         let alias = Alias::new("build", "cargo build && cargo test");
-        assert_eq!(format_alias_line(&alias), "alias build='cargo build && cargo test'");
+        assert_eq!(
+            format_alias_line(&alias),
+            "alias build='cargo build && cargo test'"
+        );
     }
 
     // -- 引号转义测试 --

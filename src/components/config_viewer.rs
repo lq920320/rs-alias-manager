@@ -10,8 +10,8 @@ use crate::state::app_state::AppState;
 
 /// 行首关键字集合（bash / zsh / fish 常见指令）。
 const KEYWORDS: &[&str] = &[
-    "alias", "export", "set", "unset", "source", "unalias", "function", "abbr", "bind",
-    "complete", "eval",
+    "alias", "export", "set", "unset", "source", "unalias", "function", "abbr", "bind", "complete",
+    "eval",
 ];
 
 /// 词法单元类型，对应 CSS 类名。
@@ -253,7 +253,9 @@ mod tests {
     fn test_alias_line() {
         let toks = tokenize_line("alias gs='git status' # shortcut");
         assert_eq!(toks[0], (Tok::Keyword, "alias".to_string()));
-        assert!(toks.iter().any(|(t, s)| *t == Tok::Str && s == "'git status'"));
+        assert!(toks
+            .iter()
+            .any(|(t, s)| *t == Tok::Str && s == "'git status'"));
         assert_eq!(toks.last().unwrap().0, Tok::Comment);
     }
 
@@ -261,7 +263,11 @@ mod tests {
     fn test_double_quoted_string_with_escape() {
         let toks = tokenize_line("export GREETING=\"hi \\\"world\\\"\"");
         assert_eq!(toks[0].0, Tok::Keyword);
-        let strs: Vec<&String> = toks.iter().filter(|(t, _)| *t == Tok::Str).map(|(_, s)| s).collect();
+        let strs: Vec<&String> = toks
+            .iter()
+            .filter(|(t, _)| *t == Tok::Str)
+            .map(|(_, s)| s)
+            .collect();
         assert_eq!(strs.len(), 1);
         assert!(strs[0].starts_with('"') && strs[0].ends_with('"'));
     }
@@ -271,7 +277,9 @@ mod tests {
         // 引号外的变量单独成词；引号内变量按设计归属于字符串词元
         let toks = tokenize_line("source $HOME/.aliases");
         assert_eq!(toks[0].0, Tok::Keyword);
-        assert!(toks.iter().any(|(t, s)| *t == Tok::Variable && s == "$HOME"));
+        assert!(toks
+            .iter()
+            .any(|(t, s)| *t == Tok::Variable && s == "$HOME"));
     }
 
     #[test]

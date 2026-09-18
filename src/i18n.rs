@@ -326,7 +326,9 @@ fn zh(key: &str) -> &'static str {
         "settings.auto_refresh" => "自动刷新",
         "settings.auto_refresh_desc" => "配置文件变更时自动刷新别名列表",
         "settings.instant_apply" => "即时生效",
-        "settings.instant_apply_desc" => "变更后自动对配置文件执行 source。仅对之后新开或由本应用启动的终端生效。",
+        "settings.instant_apply_desc" => {
+            "变更后自动对配置文件执行 source。仅对之后新开或由本应用启动的终端生效。"
+        },
         "template.import_skipped" => "新增 {} 个，跳过已存在 {} 个",
         "template.custom_new" => "新建自定义模板",
         "template.custom_name" => "名称",
@@ -367,7 +369,9 @@ fn zh(key: &str) -> &'static str {
         "error.release_not_found" => "未找到仓库的发布版本",
         // 备份管理
         "settings.backups" => "备份管理",
-        "settings.backups_desc" => "每次修改配置文件前都会自动创建备份，恢复备份将覆盖当前配置文件。",
+        "settings.backups_desc" => {
+            "每次修改配置文件前都会自动创建备份，恢复备份将覆盖当前配置文件。"
+        },
         "settings.backup_time" => "时间",
         "settings.backup_path" => "文件",
         "settings.backup_size" => "大小",

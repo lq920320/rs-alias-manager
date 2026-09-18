@@ -23,7 +23,7 @@ cd src-tauri && cargo fmt --all
 | `tab_spaces` | `4` | 缩进为 4 个空格 |
 | `hard_tabs` | `false` | 禁止使用 Tab 字符 |
 | `newline_style` | `Auto` | 依据操作系统自动选择换行符 |
-| `use_small_heuristics` | `Max` | 尽量减少单行化 |
+| `use_small_heuristics` | `Default` | rustfmt 默认折行（小表达式约 80 列即折行），不做激进单行折叠 |
 | `reorder_imports` | `true` | 自动排序 import 语句 |
 | `reorder_modules` | `true` | 自动排序 mod 声明 |
 | `match_block_trailing_comma` | `true` | match 块末尾自动加逗号 |

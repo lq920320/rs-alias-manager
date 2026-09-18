@@ -27,7 +27,11 @@ pub struct CommandError {
 impl CommandError {
     /// 构造内部错误（invoke 桥接本身的故障）。
     fn internal(message: impl Into<String>) -> Self {
-        Self { code: "internal".to_string(), message: message.into(), detail: None }
+        Self {
+            code: "internal".to_string(),
+            message: message.into(),
+            detail: None,
+        }
     }
 
     /// 返回本地化后的展示文案。
@@ -77,7 +81,11 @@ impl std::fmt::Display for CommandError {
 /// 若拒绝值是字符串或其他形式，则退化为 `unknown` 码并保留原文。
 fn command_error_from_js(val: &JsValue) -> CommandError {
     if let Some(s) = val.as_string() {
-        return CommandError { code: "unknown".to_string(), message: s, detail: None };
+        return CommandError {
+            code: "unknown".to_string(),
+            message: s,
+            detail: None,
+        };
     }
     let get_field = |key: &str| -> Option<String> {
         js_sys::Reflect::get(val, &JsValue::from_str(key))
@@ -87,7 +95,11 @@ fn command_error_from_js(val: &JsValue) -> CommandError {
     let code = get_field("code").unwrap_or_else(|| "unknown".to_string());
     let message = get_field("message").unwrap_or_else(|| format!("{:?}", val));
     let detail = get_field("detail");
-    CommandError { code, message, detail }
+    CommandError {
+        code,
+        message,
+        detail,
+    }
 }
 
 /// 检查应用程序是否在 Tauri 环境中运行。
@@ -110,9 +122,12 @@ fn serialize_args<T: serde::Serialize>(args: &T) -> Result<JsValue, CommandError
 /// 使用给定的名称和参数调用 Tauri 后端命令。
 ///
 /// 使用全局的 `window.__TAURI__.core.invoke()` 函数。
-async fn invoke<T: serde::de::DeserializeOwned>(cmd: &str, args: JsValue) -> Result<T, CommandError> {
-    let window = web_sys::window()
-        .ok_or_else(|| CommandError::internal("could not get window object"))?;
+async fn invoke<T: serde::de::DeserializeOwned>(
+    cmd: &str,
+    args: JsValue,
+) -> Result<T, CommandError> {
+    let window =
+        web_sys::window().ok_or_else(|| CommandError::internal("could not get window object"))?;
     let tauri = js_sys::Reflect::get(&window, &JsValue::from_str("__TAURI__"))
         .map_err(|_| CommandError::internal("could not get __TAURI__ object"))?;
     let core = js_sys::Reflect::get(&tauri, &JsValue::from_str("core"))
@@ -144,7 +159,11 @@ pub async fn list_aliases() -> Result<Vec<Alias>, CommandError> {
 }
 
 /// 添加新别名。
-pub async fn add_alias(name: String, command: String, tags: Vec<String>) -> Result<(), CommandError> {
+pub async fn add_alias(
+    name: String,
+    command: String,
+    tags: Vec<String>,
+) -> Result<(), CommandError> {
     if !is_tauri() {
         log::info!("[mock] add_alias: {} -> {}", name, command);
         return Ok(());
@@ -155,7 +174,11 @@ pub async fn add_alias(name: String, command: String, tags: Vec<String>) -> Resu
         command: String,
         tags: Vec<String>,
     }
-    let args = serialize_args(&Args { name, command, tags })?;
+    let args = serialize_args(&Args {
+        name,
+        command,
+        tags,
+    })?;
     invoke::<()>("add_alias", args).await
 }
 
@@ -178,7 +201,12 @@ pub async fn update_alias(
         command: String,
         tags: Vec<String>,
     }
-    let args = serialize_args(&Args { old_name, name, command, tags })?;
+    let args = serialize_args(&Args {
+        old_name,
+        name,
+        command,
+        tags,
+    })?;
     invoke::<()>("update_alias", args).await
 }
 
@@ -232,7 +260,10 @@ pub struct ImportResult {
 pub async fn import_templates(names: Vec<String>) -> Result<ImportResult, CommandError> {
     if !is_tauri() {
         log::info!("[mock] import_templates: {:?}", names);
-        return Ok(ImportResult { imported: names.len(), skipped: 0 });
+        return Ok(ImportResult {
+            imported: names.len(),
+            skipped: 0,
+        });
     }
     #[derive(serde::Serialize)]
     struct Args {
@@ -270,7 +301,13 @@ pub async fn update_settings(
         instant_apply: Option<bool>,
         locale: Option<String>,
     }
-    let args = serialize_args(&Args { shell_type, custom_config_path, auto_refresh, instant_apply, locale })?;
+    let args = serialize_args(&Args {
+        shell_type,
+        custom_config_path,
+        auto_refresh,
+        instant_apply,
+        locale,
+    })?;
     invoke::<AppSettings>("update_settings", args).await
 }
 
@@ -297,7 +334,11 @@ pub struct BatchResult {
 pub async fn batch_add_aliases(aliases: Vec<Alias>) -> Result<BatchResult, CommandError> {
     if !is_tauri() {
         log::info!("[mock] batch_add_aliases: {} items", aliases.len());
-        return Ok(BatchResult { success_count: aliases.len(), skipped_count: 0, errors: vec![] });
+        return Ok(BatchResult {
+            success_count: aliases.len(),
+            skipped_count: 0,
+            errors: vec![],
+        });
     }
     #[derive(serde::Serialize)]
     struct Args {
@@ -311,7 +352,11 @@ pub async fn batch_add_aliases(aliases: Vec<Alias>) -> Result<BatchResult, Comma
 pub async fn batch_update_aliases(aliases: Vec<Alias>) -> Result<BatchResult, CommandError> {
     if !is_tauri() {
         log::info!("[mock] batch_update_aliases: {} items", aliases.len());
-        return Ok(BatchResult { success_count: aliases.len(), skipped_count: 0, errors: vec![] });
+        return Ok(BatchResult {
+            success_count: aliases.len(),
+            skipped_count: 0,
+            errors: vec![],
+        });
     }
     #[derive(serde::Serialize)]
     struct Args {
@@ -324,7 +369,10 @@ pub async fn batch_update_aliases(aliases: Vec<Alias>) -> Result<BatchResult, Co
 /// 读取当前生效配置文件的原始内容（用于只读预览）。
 pub async fn get_config_content() -> Result<String, CommandError> {
     if !is_tauri() {
-        return Ok("# 示例配置（非 Tauri 环境）\nalias gs='git status'\nexport EDITOR=\"vim\"\n".to_string());
+        return Ok(
+            "# 示例配置（非 Tauri 环境）\nalias gs='git status'\nexport EDITOR=\"vim\"\n"
+                .to_string(),
+        );
     }
     invoke::<String>("get_config_content", JsValue::NULL).await
 }
@@ -333,7 +381,11 @@ pub async fn get_config_content() -> Result<String, CommandError> {
 pub async fn batch_delete_aliases(names: Vec<String>) -> Result<BatchResult, CommandError> {
     if !is_tauri() {
         log::info!("[mock] batch_delete_aliases: {:?}", names);
-        return Ok(BatchResult { success_count: names.len(), skipped_count: 0, errors: vec![] });
+        return Ok(BatchResult {
+            success_count: names.len(),
+            skipped_count: 0,
+            errors: vec![],
+        });
     }
     #[derive(serde::Serialize)]
     struct Args {
@@ -404,7 +456,9 @@ pub async fn auto_source(shell_type: String) -> Result<(), CommandError> {
 }
 
 /// 保存（新增或覆盖）一个用户自定义模板。
-pub async fn save_template(template: crate::state::app_state::Template) -> Result<(), CommandError> {
+pub async fn save_template(
+    template: crate::state::app_state::Template,
+) -> Result<(), CommandError> {
     if !is_tauri() {
         log::info!("[mock] save_template: {}", template.name);
         return Ok(());
@@ -458,7 +512,12 @@ pub async fn list_backups() -> Result<Vec<BackupEntry>, CommandError> {
 pub async fn restore_backup(id: String) -> Result<BackupEntry, CommandError> {
     if !is_tauri() {
         log::info!("[mock] restore_backup: {}", id);
-        return Ok(BackupEntry { id, original_path: String::new(), created_at: 0, size: 0 });
+        return Ok(BackupEntry {
+            id,
+            original_path: String::new(),
+            created_at: 0,
+            size: 0,
+        });
     }
     #[derive(serde::Serialize)]
     struct Args {

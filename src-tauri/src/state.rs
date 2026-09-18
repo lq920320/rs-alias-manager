@@ -87,7 +87,7 @@ impl AppState {
             Ok(watcher) => {
                 let mut guard = self.watcher.lock().unwrap();
                 *guard = Some(watcher);
-            }
+            },
             Err(e) => log::warn!("启动配置文件监听失败: {e}"),
         }
     }

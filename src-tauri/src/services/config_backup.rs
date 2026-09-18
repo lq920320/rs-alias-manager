@@ -194,7 +194,10 @@ mod tests {
 
         let restored = restore_backup(&app_data, &entry.id).unwrap();
         assert_eq!(restored.id, entry.id);
-        assert_eq!(std::fs::read_to_string(&config).unwrap(), "alias gs='git status'\n");
+        assert_eq!(
+            std::fs::read_to_string(&config).unwrap(),
+            "alias gs='git status'\n"
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }

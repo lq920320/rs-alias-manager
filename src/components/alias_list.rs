@@ -41,7 +41,9 @@ pub fn AliasList(
         if all_selected {
             state.set_selected_aliases.set(Vec::new());
         } else {
-            state.set_selected_aliases.set(aliases.iter().map(|a| a.name.clone()).collect());
+            state
+                .set_selected_aliases
+                .set(aliases.iter().map(|a| a.name.clone()).collect());
         }
     };
 

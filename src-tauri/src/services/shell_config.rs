@@ -89,9 +89,11 @@ impl ShellConfigManager {
         let mut changed = false;
         for alias in aliases {
             if let Err(reason) = Alias::validate_name(&alias.name) {
-                outcome
-                    .errors
-                    .push(format!("{}: {}", alias.name, AppError::InvalidAliasName(reason)));
+                outcome.errors.push(format!(
+                    "{}: {}",
+                    alias.name,
+                    AppError::InvalidAliasName(reason)
+                ));
                 continue;
             }
             if current.iter().any(|a| a.name == alias.name) {
@@ -127,9 +129,11 @@ impl ShellConfigManager {
         let mut changed = false;
         for name in names {
             if !existing.contains(name.as_str()) {
-                outcome
-                    .errors
-                    .push(format!("{}: {}", name, AppError::AliasNotFound(name.clone())));
+                outcome.errors.push(format!(
+                    "{}: {}",
+                    name,
+                    AppError::AliasNotFound(name.clone())
+                ));
                 continue;
             }
             remaining.retain(|a| a.name != *name);
@@ -161,9 +165,11 @@ impl ShellConfigManager {
         let mut changed = false;
         for alias in aliases {
             if let Err(reason) = Alias::validate_name(&alias.name) {
-                outcome
-                    .errors
-                    .push(format!("{}: {}", alias.name, AppError::InvalidAliasName(reason)));
+                outcome.errors.push(format!(
+                    "{}: {}",
+                    alias.name,
+                    AppError::InvalidAliasName(reason)
+                ));
                 continue;
             }
             match current.iter_mut().find(|a| a.name == alias.name) {
@@ -176,9 +182,11 @@ impl ShellConfigManager {
                     outcome.success_count += 1;
                 },
                 None => {
-                    outcome
-                        .errors
-                        .push(format!("{}: {}", alias.name, AppError::AliasNotFound(alias.name.clone())));
+                    outcome.errors.push(format!(
+                        "{}: {}",
+                        alias.name,
+                        AppError::AliasNotFound(alias.name.clone())
+                    ));
                 },
             }
         }
@@ -204,7 +212,14 @@ impl ShellConfigManager {
         let path = config_path.to_string_lossy().to_string();
         let (program, args) = match shell_type {
             ShellType::Bash => ("bash", vec!["-c".to_string(), format!("source '{path}'")]),
-            ShellType::Zsh => ("zsh", vec!["-i".to_string(), "-c".to_string(), format!("source '{path}'")]),
+            ShellType::Zsh => (
+                "zsh",
+                vec![
+                    "-i".to_string(),
+                    "-c".to_string(),
+                    format!("source '{path}'"),
+                ],
+            ),
             // Fish 保留选项但本期不保证语义正确（已知限制）。
             ShellType::Fish => ("fish", vec!["-c".to_string(), format!("source '{path}'")]),
         };
@@ -402,7 +417,10 @@ mod tests {
         let updated = Alias::new("gs", "git status --short");
         ShellConfigManager::update_alias(&path, "gs", &updated).unwrap();
         let aliases = ShellConfigManager::list_aliases(&path).unwrap();
-        assert_eq!(aliases.iter().find(|a| a.name == "gs").unwrap().command, "git status --short");
+        assert_eq!(
+            aliases.iter().find(|a| a.name == "gs").unwrap().command,
+            "git status --short"
+        );
 
         // 删除
         ShellConfigManager::delete_alias(&path, "ll").unwrap();
@@ -498,8 +516,11 @@ mod tests {
     fn test_batch_delete_single_write() {
         let dir = unique_test_dir("batch_del");
         let path = dir.join("test_rc_batch_del");
-        fs::write(&path, "alias gs='git status'\nalias ll='ls -la'\nalias gp='git push'\n")
-            .unwrap();
+        fs::write(
+            &path,
+            "alias gs='git status'\nalias ll='ls -la'\nalias gp='git push'\n",
+        )
+        .unwrap();
 
         let outcome = ShellConfigManager::delete_aliases_batch(
             &path,
@@ -520,7 +541,11 @@ mod tests {
     fn test_batch_update_single_write_in_place() {
         let dir = unique_test_dir("batch_upd");
         let path = dir.join("test_rc_batch_upd");
-        fs::write(&path, "# header\nalias gs='git status'\nalias ll='ls -la'\n").unwrap();
+        fs::write(
+            &path,
+            "# header\nalias gs='git status'\nalias ll='ls -la'\n",
+        )
+        .unwrap();
 
         let mut gs = Alias::new("gs", "git status --short");
         gs.tags = vec!["git".to_string()];
@@ -551,7 +576,10 @@ mod tests {
 
         let outcome = ShellConfigManager::update_aliases_batch(
             &path,
-            &[Alias::new("missing", "echo hi"), Alias::new("bad name", "echo hi")],
+            &[
+                Alias::new("missing", "echo hi"),
+                Alias::new("bad name", "echo hi"),
+            ],
         )
         .unwrap();
         assert_eq!(outcome.success_count, 0);

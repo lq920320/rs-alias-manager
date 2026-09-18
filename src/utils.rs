@@ -93,7 +93,10 @@ pub fn validate_alias_name(name: &str) -> Result<(), String> {
     if name.starts_with('-') {
         return Err(crate::i18n::t("validate.name_hyphen"));
     }
-    if !name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
+    if !name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+    {
         return Err(crate::i18n::t("validate.name_chars"));
     }
     Ok(())
