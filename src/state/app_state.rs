@@ -8,9 +8,18 @@
 /// - 加载和错误状态
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::cell::Cell;
 use std::rc::Rc;
 
 use crate::i18n::Locale;
+
+thread_local! {
+    /// 配置变更事件监听是否已注册。
+    ///
+    /// `load_settings_and_config` 会被多个页面调用，而监听回调没有注销机制；
+    /// 不设防会随页面切换不断叠加，导致一次变更触发多次刷新。注册一次即可。
+    static CONFIG_LISTENER_REGISTERED: Cell<bool> = const { Cell::new(false) };
+}
 
 /// 表示前端的 Shell 别名。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -326,9 +335,22 @@ impl AppState {
             }
         });
 
+        // 监听只注册一次：多个页面都会调用本方法，而回调本身不支持注销，
+        // 重复注册会导致一次配置变更触发多次刷新。
+        let already_registered = CONFIG_LISTENER_REGISTERED.with(|flag| {
+            if flag.get() {
+                true
+            } else {
+                flag.set(true);
+                false
+            }
+        });
+        if already_registered {
+            return;
+        }
+
         // 订阅后端配置变更事件，节流（最多每 400ms 一次）后自动刷新别名列表，
         // 避免原子重命名产生的连续事件触发风暴。
-        use std::cell::Cell;
         use std::time::{Duration, Instant};
         let last_reload: Rc<Cell<Option<Instant>>> = Rc::new(Cell::new(None));
         let last_clone = last_reload.clone();

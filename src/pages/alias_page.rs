@@ -2,9 +2,6 @@
 ///
 /// 提供查看、添加、编辑和删除 Shell 别名的主界面。
 /// 包含搜索过滤、多选操作、导入预览与配置文件查看功能。
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use wasm_bindgen::JsCast;
@@ -18,9 +15,6 @@ use crate::i18n::t;
 use crate::state::app_state::Alias;
 use crate::state::app_state::AppState;
 use crate::utils::trigger_download;
-
-/// 导入回调的共享槽位：回调触发后置 None，令 Closure 自行释放。
-type ImportCbSlot = Rc<RefCell<Option<wasm_bindgen::closure::Closure<dyn Fn(Event)>>>>;
 
 /// 变更成功后，若开启 instant_apply 则对配置文件执行 source（仅对新终端生效）。
 fn trigger_auto_source(state: AppState) {
@@ -180,6 +174,9 @@ pub fn AliasPage() -> impl IntoView {
     let (pending_overwrite, set_pending_overwrite) =
         signal(None::<(String, String, String, Vec<String>)>);
 
+    // 删除确认对话框：待删除的别名列表，空表示关闭
+    let (pending_delete, set_pending_delete) = signal(Vec::<String>::new());
+
     // 导入预览对话框状态：None 表示未打开
     let (import_rows, set_import_rows) = signal(None::<Vec<ImportRow>>);
     let (import_dup_merged, set_import_dup_merged) = signal(0usize);
@@ -210,13 +207,10 @@ pub fn AliasPage() -> impl IntoView {
             match FileReader::new() {
                 Ok(reader) => {
                     let reader_for_cb = reader.clone();
-                    // 回调触发后自行释放，避免每次导入泄漏一个 Closure
-                    let slot: ImportCbSlot = Rc::new(RefCell::new(None));
-                    let onload = wasm_bindgen::closure::Closure::wrap(Box::new({
-                        let slot = slot.clone();
-                        move |_e: Event| {
-                            *slot.borrow_mut() = None;
-                            if let Ok(text) = reader_for_cb.result() {
+                    // 回调触发后由 wasm-bindgen 自动释放，无需手工管理生命周期
+                    let onload = wasm_bindgen::closure::Closure::once_into_js(move || {
+                        match reader_for_cb.result() {
+                            Ok(text) => {
                                 if let Some(s) = text.as_string() {
                                     let existing = state.aliases.get().to_vec();
                                     match serde_json::from_str::<Vec<Alias>>(&s) {
@@ -234,17 +228,26 @@ pub fn AliasPage() -> impl IntoView {
                                         },
                                     }
                                 }
-                            }
+                            },
+                            Err(_) => state
+                                .set_error_message
+                                .set(Some(t("alias.file_read_error"))),
                         }
-                    })
-                        as Box<dyn Fn(Event)>);
-                    reader.set_onload(Some(onload.as_ref().unchecked_ref()));
-                    *slot.borrow_mut() = Some(onload);
+                    });
+                    reader.set_onload(Some(onload.unchecked_ref()));
+
+                    let onerror = wasm_bindgen::closure::Closure::once_into_js(move || {
+                        state
+                            .set_error_message
+                            .set(Some(t("alias.file_read_error")));
+                    });
+                    reader.set_onerror(Some(onerror.unchecked_ref()));
+
                     let _ = reader.read_as_text(&file);
                 },
                 Err(_) => state
                     .set_error_message
-                    .set(Some("Failed to read file".to_string())),
+                    .set(Some(t("alias.file_read_error"))),
             }
         }
     };
@@ -385,22 +388,62 @@ pub fn AliasPage() -> impl IntoView {
         set_show_form.set(true);
     };
 
-    let on_delete = {
-        move |name: String| {
-            spawn_local(async move {
-                state.set_loading.set(true);
-                match crate::api::commands::delete_alias(name).await {
+    // 实际执行删除（单条走单删命令，多条走批量命令）
+    let perform_delete = move |names: Vec<String>| {
+        if names.is_empty() {
+            return;
+        }
+        spawn_local(async move {
+            state.set_loading.set(true);
+            if names.len() == 1 {
+                match crate::api::commands::delete_alias(names[0].clone()).await {
                     Ok(()) => {
-                        reload_aliases(state);
-                        trigger_auto_source(state);
+                        state
+                            .set_success_message
+                            .set(Some(t("alias.delete_success").replace("{}", "1")));
                     },
                     Err(e) => {
                         state.set_error_message.set(Some(e.display()));
                     },
                 }
-                state.set_loading.set(false);
-            });
-        }
+            } else {
+                let deleted_count = names.len();
+                match crate::api::commands::batch_delete_aliases(names).await {
+                    Ok(result) => {
+                        if !result.errors.is_empty() {
+                            state.set_error_message.set(Some(
+                                t("alias.delete_partial").replace("{}", &result.errors.join(", ")),
+                            ));
+                        } else {
+                            state.set_success_message.set(Some(
+                                t("alias.delete_success").replace("{}", &deleted_count.to_string()),
+                            ));
+                        }
+                    },
+                    Err(e) => {
+                        state.set_error_message.set(Some(e.display()));
+                    },
+                }
+            }
+            state.set_selected_aliases.set(Vec::new());
+            reload_aliases(state);
+            trigger_auto_source(state);
+            state.set_loading.set(false);
+        });
+    };
+
+    let on_delete = move |name: String| {
+        set_pending_delete.set(vec![name]);
+    };
+
+    let on_delete_cancel = move |_: ()| {
+        set_pending_delete.set(Vec::new());
+    };
+
+    let on_delete_confirm = move |_: ()| {
+        let names = pending_delete.get();
+        set_pending_delete.set(Vec::new());
+        perform_delete(names);
     };
 
     let on_form_submit = {
@@ -471,30 +514,7 @@ pub fn AliasPage() -> impl IntoView {
             if selected.is_empty() {
                 return;
             }
-            spawn_local(async move {
-                state.set_loading.set(true);
-                let deleted_count = selected.len();
-                match crate::api::commands::batch_delete_aliases(selected.to_vec()).await {
-                    Ok(result) => {
-                        if !result.errors.is_empty() {
-                            state.set_error_message.set(Some(
-                                t("alias.delete_partial").replace("{}", &result.errors.join(", ")),
-                            ));
-                        } else {
-                            state.set_success_message.set(Some(
-                                t("alias.delete_success").replace("{}", &deleted_count.to_string()),
-                            ));
-                        }
-                    },
-                    Err(e) => {
-                        state.set_error_message.set(Some(e.display()));
-                    },
-                }
-                state.set_selected_aliases.set(Vec::new());
-                reload_aliases(state);
-                trigger_auto_source(state);
-                state.set_loading.set(false);
-            });
+            set_pending_delete.set(selected.to_vec());
         }
     };
 
@@ -629,6 +649,37 @@ pub fn AliasPage() -> impl IntoView {
                 } else {
                     view! { <div></div> }.into_any()
                 }
+            }
+        }
+
+        {
+            move || {
+                let names = pending_delete.get();
+                if names.is_empty() {
+                    return view! { <div></div> }.into_any();
+                }
+                let msg = t("alias.delete_confirm_msg").replace("{}", &names.len().to_string());
+                view! {
+                    <div class="modal-backdrop">
+                        <div class="modal">
+                            <div class="modal__header">
+                                <span class="modal__title">{move || t("alias.delete_confirm_title")}</span>
+                                <button class="btn btn--icon" on:click=move |_| on_delete_cancel(())>
+                                    &times;
+                                </button>
+                            </div>
+                            <div class="modal__body">{msg}</div>
+                            <div class="modal__footer">
+                                <button class="btn btn--secondary" on:click=move |_| on_delete_cancel(())>
+                                    {move || t("form.cancel")}
+                                </button>
+                                <button class="btn btn--primary" on:click=move |_| on_delete_confirm(())>
+                                    {move || t("alias.delete_confirm_action")}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }.into_any()
             }
         }
 

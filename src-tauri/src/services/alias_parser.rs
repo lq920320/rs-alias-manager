@@ -223,14 +223,13 @@ pub fn parse_aliases_from_content(content: &str) -> Vec<Alias> {
 
 /// 通过用提供的别名替换别名行并保留所有非别名行来重建配置文件内容。
 ///
-/// - 现有的别名行根据新的别名列表被替换或移除。
-/// - 非别名行（注释、export 等）保持原有顺序。
-/// - 原始文件中不存在的新别名将追加在末尾。
-/// - 标签注释行会被正确处理（移除旧的、添加新的）。
+/// - 内容未变化的别名保留原始行文本（含引号风格与标签注释），避免重写造成语义漂移；
+/// - 有变化（命令/标签）的别名会被重新序列化为规范单引号格式；
+/// - 非别名行（注释、export 等）保持原有顺序；
+/// - 原始文件中不存在的新别名将追加在末尾；
+/// - 已删除的别名及其标签注释行会被移除。
 pub fn rebuild_config_content(original_content: &str, aliases: &[Alias]) -> String {
     let mut result_lines: Vec<String> = Vec::new();
-    let new_alias_names: std::collections::HashSet<String> =
-        aliases.iter().map(|a| a.name.clone()).collect();
     let mut alias_order: Vec<String> = aliases.iter().map(|a| a.name.clone()).collect();
 
     let lines: Vec<&str> = original_content.lines().collect();
@@ -240,26 +239,33 @@ pub fn rebuild_config_content(original_content: &str, aliases: &[Alias]) -> Stri
         let line = lines[i];
 
         // 检查是否是标签注释 + 别名行的组合
-        if parse_tags_comment(line).is_some() && i + 1 < lines.len() {
-            if let Some(parsed) = parse_alias_line(lines[i + 1]) {
-                // 这是一个标签注释 + 别名行的组合
-                if new_alias_names.contains(&parsed.name) {
-                    // 用更新后的别名替换（包含新标签）
+        if let Some(tags) = parse_tags_comment(line) {
+            if i + 1 < lines.len() {
+                if let Some(mut parsed) = parse_alias_line(lines[i + 1]) {
+                    parsed.tags = tags;
                     if let Some(updated) = aliases.iter().find(|a| a.name == parsed.name) {
-                        result_lines.push(format_alias_line(updated));
+                        if *updated == parsed {
+                            // 未改动：原样保留标签注释与别名行
+                            result_lines.push(line.to_string());
+                            result_lines.push(lines[i + 1].to_string());
+                        } else {
+                            result_lines.push(format_alias_line(updated));
+                        }
+                        alias_order.retain(|n| n != &parsed.name);
                     }
-                    alias_order.retain(|n| n != &parsed.name);
+                    // 否则别名已删除，跳过标签注释和别名行
+                    i += 2;
+                    continue;
                 }
-                // 否则别名已删除，跳过标签注释和别名行
-                i += 2;
-                continue;
             }
         }
 
         // 检查是否是单独的别名行（无标签注释）
         if let Some(parsed) = parse_alias_line(line) {
-            if new_alias_names.contains(&parsed.name) {
-                if let Some(updated) = aliases.iter().find(|a| a.name == parsed.name) {
+            if let Some(updated) = aliases.iter().find(|a| a.name == parsed.name) {
+                if *updated == parsed {
+                    result_lines.push(line.to_string());
+                } else {
                     result_lines.push(format_alias_line(updated));
                 }
                 alias_order.retain(|n| n != &parsed.name);
@@ -646,6 +652,46 @@ mod tests {
         let aliases = vec![Alias::new("gs", "git status")];
         let result = rebuild_config_content(content, &aliases);
         assert!(result.ends_with('\n'), "重建后的内容应以换行符结尾");
+    }
+
+    #[test]
+    fn test_rebuild_preserves_untouched_alias_raw_text() {
+        // 双引号 + \$ 的写法无法被解析器完整还原，未编辑的别名必须原样保留
+        let content = "alias p=\"echo \\$HOME\"\nalias gs='git status'\n";
+        let aliases = vec![
+            Alias::new("p", "echo \\$HOME"),
+            Alias::new("gs", "git status --short"),
+        ];
+        let result = rebuild_config_content(content, &aliases);
+        assert!(
+            result.contains("alias p=\"echo \\$HOME\""),
+            "未改动别名应保留原始行"
+        );
+        assert!(result.contains("alias gs='git status --short'"));
+    }
+
+    #[test]
+    fn test_rebuild_preserves_untouched_tags_comment() {
+        let content = "# @tags:git\nalias gs='git status'\nalias ll='ls -la'\n";
+        let mut gs = Alias::new("gs", "git status");
+        gs.tags = vec!["git".to_string()];
+        let aliases = vec![gs, Alias::new("ll", "ls -lah")];
+        let result = rebuild_config_content(content, &aliases);
+        assert!(
+            result.contains("# @tags:git\nalias gs='git status'"),
+            "未改动别名的标签注释与行应保持原样"
+        );
+        assert!(result.contains("alias ll='ls -lah'"));
+    }
+
+    #[test]
+    fn test_rebuild_reserializes_changed_tags() {
+        let content = "# @tags:git\nalias gs='git status'\n";
+        let mut gs = Alias::new("gs", "git status");
+        gs.tags = vec!["vcs".to_string()];
+        let result = rebuild_config_content(content, &[gs]);
+        assert!(result.contains("# @tags:vcs\nalias gs='git status'"));
+        assert!(!result.contains("# @tags:git\n"));
     }
 
     #[test]

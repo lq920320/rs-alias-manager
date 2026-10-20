@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::AppError;
 use crate::models::shell_type::ShellType;
+use crate::services::safe_writer::{quarantine_file, safe_write};
 
 /// 应用程序设置模型。
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,25 +60,38 @@ impl AppSettingsManager {
 
     /// 从应用数据目录加载设置。
     ///
-    /// 如果文件不存在或无法解析，则返回默认设置。
+    /// 文件不存在时返回默认设置。读取或解析失败时，将损坏文件改名为
+    /// `settings.json.corrupt-<时间戳>` 保留现场，并回退到默认设置。
     pub fn load(app_data_dir: &Path) -> AppSettings {
         let path = Self::settings_path(app_data_dir);
         if !path.exists() {
             return AppSettings::default();
         }
 
-        match fs::read_to_string(&path) {
-            Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
-            Err(_) => AppSettings::default(),
+        let content = match fs::read_to_string(&path) {
+            Ok(content) => content,
+            Err(e) => {
+                log::warn!("读取设置文件失败，使用默认设置: {e}");
+                return AppSettings::default();
+            },
+        };
+
+        match serde_json::from_str(&content) {
+            Ok(settings) => settings,
+            Err(e) => {
+                log::warn!("设置文件解析失败，已隔离损坏文件并回退默认设置: {e}");
+                quarantine_file(&path);
+                AppSettings::default()
+            },
         }
     }
 
-    /// 将设置保存到应用数据目录。
+    /// 将设置以原子方式保存到应用数据目录。
     pub fn save(app_data_dir: &Path, settings: &AppSettings) -> Result<(), AppError> {
         fs::create_dir_all(app_data_dir)?;
         let path = Self::settings_path(app_data_dir);
         let content = serde_json::to_string_pretty(settings)?;
-        fs::write(&path, content)?;
+        safe_write(&path, &content)?;
         Ok(())
     }
 
@@ -123,6 +137,47 @@ mod tests {
         assert_eq!(loaded.shell_type, ShellType::Zsh);
         assert_eq!(loaded.custom_config_path, Some("/custom/path".to_string()));
         assert!(!loaded.auto_refresh);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_corrupt_settings_quarantined() {
+        let dir = std::env::temp_dir().join(format!(
+            "rs-alias-manager-test-settings-corrupt-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.json");
+        fs::write(&path, "{ broken").unwrap();
+
+        // 解析失败时回退默认设置，且不丢损坏现场
+        let loaded = AppSettingsManager::load(&dir);
+        assert_eq!(loaded.shell_type, ShellType::from_env());
+        assert!(!path.exists());
+        let quarantined: Vec<_> = fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .starts_with("settings.json.corrupt-")
+            })
+            .collect();
+        assert_eq!(quarantined.len(), 1);
+        assert_eq!(
+            fs::read_to_string(quarantined[0].path()).unwrap(),
+            "{ broken"
+        );
+
+        // 之后保存应能重建正常的设置文件
+        AppSettingsManager::save(&dir, &AppSettings::default()).unwrap();
+        assert!(path.exists());
+        assert_eq!(
+            AppSettingsManager::load(&dir).shell_type,
+            ShellType::from_env()
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }

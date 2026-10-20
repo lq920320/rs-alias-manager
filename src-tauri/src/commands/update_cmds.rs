@@ -28,11 +28,15 @@ pub fn auto_source(app: AppHandle, shell_type: ShellType) -> Result<(), AppError
 /// 当前版本号从 `tauri.conf.json`（即打包时使用的权威版本）读取，
 /// 而非 `CARGO_PKG_VERSION`，以避免后端 Cargo.toml 与发布版本不同步。
 ///
+/// 网络请求最长等待 15 秒，因此放入阻塞线程池执行，避免卡住主线程。
+///
 /// 返回包含版本信息和更新状态的 `UpdateInfo`。
 #[tauri::command]
-pub fn check_for_updates(app: AppHandle) -> Result<UpdateInfo, AppError> {
+pub async fn check_for_updates(app: AppHandle) -> Result<UpdateInfo, AppError> {
     let current = app.package_info().version.to_string();
-    update_checker::check_for_updates(&current)
+    tauri::async_runtime::spawn_blocking(move || update_checker::check_for_updates(&current))
+        .await
+        .map_err(|e| AppError::NetworkError(format!("更新检查任务执行失败: {e}")))?
 }
 
 /// 获取当前应用程序版本号。

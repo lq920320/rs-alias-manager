@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::error::AppError;
-use crate::services::safe_writer::{safe_read, safe_write};
+use crate::services::safe_writer::{quarantine_file, safe_read, safe_write};
 
 /// 备份子目录名。
 const BACKUP_DIR_NAME: &str = "backups";
@@ -44,17 +44,25 @@ pub fn backup_file_path(app_data_dir: &Path, id: &str) -> PathBuf {
 }
 
 fn load_index(app_data_dir: &Path) -> Vec<BackupEntry> {
-    let content = match safe_read(&index_path(app_data_dir)) {
+    let path = index_path(app_data_dir);
+    let content = match safe_read(&path) {
         Ok(c) => c,
-        Err(_) => return Vec::new(),
+        Err(e) => {
+            log::warn!("读取备份索引失败: {e}");
+            return Vec::new();
+        },
     };
     if content.is_empty() {
         return Vec::new();
     }
-    serde_json::from_str(&content).unwrap_or_else(|e| {
-        log::warn!("备份索引解析失败，将重建: {e}");
-        Vec::new()
-    })
+    match serde_json::from_str(&content) {
+        Ok(entries) => entries,
+        Err(e) => {
+            log::warn!("备份索引解析失败，已隔离损坏文件并重建: {e}");
+            quarantine_file(&path);
+            Vec::new()
+        },
+    }
 }
 
 fn save_index(app_data_dir: &Path, entries: &[BackupEntry]) -> Result<(), AppError> {
@@ -208,6 +216,41 @@ mod tests {
         let app_data = dir.join("data");
         let _ = std::fs::create_dir_all(&app_data);
         assert!(restore_backup(&app_data, "nope").is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_corrupt_index_is_quarantined() {
+        let dir = unique_test_dir("corrupt_index");
+        let app_data = dir.join("data");
+        let config = dir.join(".zshrc");
+        std::fs::write(&config, "alias gs='git status'\n").unwrap();
+
+        // 先创建一份正常备份，再破坏索引
+        create_backup(&app_data, &config).unwrap();
+        std::fs::write(index_path(&app_data), "{ not valid json").unwrap();
+
+        // 列表降级为空，而不是返回脏数据或失败
+        assert!(list_backups(&app_data).is_empty());
+
+        // 损坏文件被改名保留，原始内容可追溯
+        let corrupt_files: Vec<_> = std::fs::read_dir(backup_dir(&app_data))
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().contains(".corrupt-"))
+            .collect();
+        assert_eq!(corrupt_files.len(), 1);
+        assert_eq!(
+            std::fs::read_to_string(corrupt_files[0].path()).unwrap(),
+            "{ not valid json"
+        );
+        assert!(!index_path(&app_data).exists());
+
+        // 后续备份可以正常重建索引
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        create_backup(&app_data, &config).unwrap();
+        assert_eq!(list_backups(&app_data).len(), 1);
+
         let _ = std::fs::remove_dir_all(&dir);
     }
 
